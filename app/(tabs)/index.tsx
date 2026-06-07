@@ -28,21 +28,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
   },
-
   logo: {
     color: '#FFFFFF',
     fontSize: 44,
     fontWeight: '800',
     letterSpacing: 3,
   },
-
   tagline: {
     color: '#A78BFA',
     fontSize: 18,
     marginTop: 12,
     marginBottom: 50,
   },
-
   button: {
     backgroundColor: '#7C3AED',
     width: '100%',
@@ -51,13 +48,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-
   buttonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
   },
-
   secondaryButton: {
     width: '100%',
     padding: 18,
@@ -66,7 +61,6 @@ const styles = StyleSheet.create({
     borderColor: '#374151',
     alignItems: 'center',
   },
-
   secondaryText: {
     color: '#FFFFFF',
     fontSize: 16,
