@@ -1,23 +1,36 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
 
 export default function RoleSelection() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Which best describes you?</Text>
 
-      <TouchableOpacity style={styles.option}>
+      <TouchableOpacity
+        style={styles.option}
+        onPress={() => router.push('/name')}
+        >
         <Text style={styles.optionText}>🎓 Student / Exploring Careers</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.option}>
+      <TouchableOpacity
+        style={styles.option}
+        onPress={() => router.push('/name')}
+        >
         <Text style={styles.optionText}>💼 Professional</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.option}>
+      <TouchableOpacity
+        style={styles.option}
+        onPress={() => router.push('/name')}
+        >
         <Text style={styles.optionText}>🔄 Career Changer</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.option}>
+      <TouchableOpacity
+        style={styles.option}
+        onPress={() => router.push('/name')}
+        >
         <Text style={styles.optionText}>🤔 Not Sure Yet</Text>
       </TouchableOpacity>
     </View>
