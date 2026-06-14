@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
 
 export default function HomeScreen() {
   return (
@@ -9,7 +10,10 @@ export default function HomeScreen() {
         Engineer Your Future
       </Text>
 
-      <TouchableOpacity style={styles.button}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => router.push('/role-selection')}
+      >
         <Text style={styles.buttonText}>Get Started</Text>
       </TouchableOpacity>
 
