@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { router } from 'expo-router';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 
 export default function NameScreen() {
@@ -6,7 +7,7 @@ export default function NameScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>What's your first name?</Text>
+     <Text style={styles.title}>What&apos;s your first name?</Text>
 
       <TextInput
         style={styles.input}
@@ -16,7 +17,10 @@ export default function NameScreen() {
         onChangeText={setName}
       />
 
-      <TouchableOpacity style={styles.button}>
+<TouchableOpacity
+  style={styles.button}
+  onPress={() => router.push('/purpose')}
+>
         <Text style={styles.buttonText}>Continue</Text>
       </TouchableOpacity>
     </View>
