@@ -1,43 +1,41 @@
 import { router } from "expo-router";
 import { useContext, useState } from "react";
 import {
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
+
 import { UserContext } from "../context/UserContext";
 
-export default function NameScreen() {
-  const [name, setName] = useState("");
-
+export default function CurrentSalaryScreen() {
   const { userData, setUserData } = useContext(UserContext);
+  const [salary, setSalary] = useState("");
 
   const handleContinue = () => {
-    if (!name.trim()) {
-      alert("Please enter your first name");
-      return;
-    }
+    if (!salary.trim()) return;
 
     setUserData({
       ...userData,
-      name: name.trim(),
+      currentSalary: salary,
     });
 
-    router.push("/purpose");
+    router.push("/target-salary");
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>What is your first name?</Text>
+      <Text style={styles.title}>What is your current annual salary?</Text>
 
       <TextInput
         style={styles.input}
-        placeholder="Enter your first name"
+        placeholder="25000"
         placeholderTextColor="#94A3B8"
-        value={name}
-        onChangeText={setName}
+        keyboardType="numeric"
+        value={salary}
+        onChangeText={setSalary}
       />
 
       <TouchableOpacity style={styles.button} onPress={handleContinue}>
@@ -59,16 +57,17 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 28,
     fontWeight: "700",
-    marginBottom: 24,
     textAlign: "center",
+    marginBottom: 30,
   },
 
   input: {
     backgroundColor: "#1E293B",
     color: "#FFFFFF",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
+    padding: 18,
+    borderRadius: 14,
+    marginBottom: 20,
+    fontSize: 16,
   },
 
   button: {

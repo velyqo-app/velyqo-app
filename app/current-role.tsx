@@ -1,43 +1,44 @@
 import { router } from "expo-router";
 import { useContext, useState } from "react";
 import {
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
+
 import { UserContext } from "../context/UserContext";
 
-export default function NameScreen() {
-  const [name, setName] = useState("");
+export default function CurrentRoleScreen() {
+  const [currentRole, setCurrentRole] = useState("");
 
   const { userData, setUserData } = useContext(UserContext);
 
   const handleContinue = () => {
-    if (!name.trim()) {
-      alert("Please enter your first name");
+    if (!currentRole.trim()) {
+      alert("Please enter your current role");
       return;
     }
 
     setUserData({
       ...userData,
-      name: name.trim(),
+      currentRole: currentRole.trim(),
     });
 
-    router.push("/purpose");
+    router.push("/target-role");
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>What is your first name?</Text>
+      <Text style={styles.title}>What is your current role?</Text>
 
       <TextInput
         style={styles.input}
-        placeholder="Enter your first name"
+        placeholder="e.g. Warehouse Operative"
         placeholderTextColor="#94A3B8"
-        value={name}
-        onChangeText={setName}
+        value={currentRole}
+        onChangeText={setCurrentRole}
       />
 
       <TouchableOpacity style={styles.button} onPress={handleContinue}>
