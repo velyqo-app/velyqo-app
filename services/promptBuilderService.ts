@@ -1,8 +1,13 @@
 import { AIContext } from "../types/ai";
 
+const NOT_SET = "Not set";
+
 export function buildCoachPrompt(context: AIContext, message: string): string {
   const { profile, mission, progress, momentum } = context;
 
+  // `profile` is a raw database row, so every field here must be snake_case.
+  // Reading camelCase keys off it previously sent literal "undefined" values
+  // to the model, which is exactly what stops responses being personalised.
   return `
 You are Velyqo, an AI Career Coach.
 
@@ -14,14 +19,15 @@ Guidelines:
 - Be encouraging but realistic.
 - Recommend one clear next step.
 - Keep responses concise unless the user asks for more detail.
+- If a detail below is "${NOT_SET}", ask for it rather than assuming a value.
 
 =========================
 USER PROFILE
 =========================
 
-Name: ${profile.name || "User"}
-Current Role: ${profile.currentRole}
-Target Role: ${profile.targetRole}
+Name: ${profile.full_name || "User"}
+Current Role: ${profile.current_role || NOT_SET}
+Target Role: ${profile.target_role || NOT_SET}
 
 =========================
 TODAY'S MISSION

@@ -13,7 +13,7 @@ import Card from "../../components/ui/Card";
 import { Colors } from "../../constants/theme";
 import { UserContext } from "../../context/UserContext";
 import { careerData } from "../../data/careerData";
-import { salaryData } from "../../data/salaries";
+import { getIndicativeSalary } from "../../data/salaries";
 
 export default function TimelineScreen() {
   const { userData } = useContext(UserContext);
@@ -22,7 +22,7 @@ export default function TimelineScreen() {
 
   const roleData = careerData[roleKey as keyof typeof careerData];
 
-  const salary = salaryData[roleKey as keyof typeof salaryData];
+  const salary = getIndicativeSalary(userData.targetRole, userData.country);
 
   const roadmap = roleData?.roadmap || [
     { step: "Learn key skills", time: "1-2 months" },
@@ -63,6 +63,10 @@ export default function TimelineScreen() {
 
             <Text style={styles.range}>
               £{salary.min.toLocaleString()} - £{salary.max.toLocaleString()}
+            </Text>
+
+            <Text style={styles.provenance}>
+              Indicative UK market estimate, not a figure specific to you.
             </Text>
           </Card>
         )}
@@ -191,6 +195,14 @@ const styles = StyleSheet.create({
     color: Colors.subtext,
     textAlign: "center",
     marginTop: 10,
+  },
+
+  provenance: {
+    color: Colors.subtext,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "center",
+    marginTop: 14,
   },
 
   skill: {

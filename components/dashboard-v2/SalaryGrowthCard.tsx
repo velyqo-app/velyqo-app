@@ -5,15 +5,33 @@ import Card from "../ui/Card";
 
 interface Props {
   currentSalary: string;
-  targetSalary: number;
+  /** Null when there is no reliable figure — never substitute a zero. */
+  targetSalary: number | null;
+  /** Where targetSalary came from, so the user can judge how much to trust it. */
+  targetSalarySource: "stated" | "market" | null;
 }
 
 export default function SalaryGrowthCard({
   currentSalary,
   targetSalary,
+  targetSalarySource,
 }: Props) {
-  const current = Number(currentSalary) || 0;
-  const increase = targetSalary - current;
+  const current = Number(currentSalary) || null;
+
+  if (targetSalary === null) {
+    return (
+      <Card>
+        <Text style={styles.title}>💰 Salary Growth</Text>
+
+        <Text style={styles.unavailable}>
+          We don&apos;t have reliable salary data for this role yet. Add a
+          target salary during onboarding and it will appear here.
+        </Text>
+      </Card>
+    );
+  }
+
+  const increase = current === null ? null : targetSalary - current;
 
   return (
     <Card>
@@ -22,7 +40,10 @@ export default function SalaryGrowthCard({
       <View style={styles.row}>
         <View style={styles.column}>
           <Text style={styles.label}>Current</Text>
-          <Text style={styles.current}>£{current.toLocaleString()}</Text>
+
+          <Text style={styles.current}>
+            {current === null ? "Not set" : `£${current.toLocaleString()}`}
+          </Text>
         </View>
 
         <Text style={styles.arrow}>→</Text>
@@ -33,11 +54,23 @@ export default function SalaryGrowthCard({
         </View>
       </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerLabel}>Potential Increase</Text>
+      {increase !== null && (
+        <View style={styles.footer}>
+          <Text style={styles.footerLabel}>Potential Increase</Text>
 
-        <Text style={styles.footerValue}>+£{increase.toLocaleString()}</Text>
-      </View>
+          <Text style={styles.footerValue}>
+            {increase >= 0
+              ? `+£${increase.toLocaleString()}`
+              : `-£${Math.abs(increase).toLocaleString()}`}
+          </Text>
+        </View>
+      )}
+
+      {targetSalarySource === "market" && (
+        <Text style={styles.source}>
+          Target based on an indicative UK market average, not your own figure.
+        </Text>
+      )}
     </Card>
   );
 }
@@ -104,5 +137,19 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "800",
     marginTop: 6,
+  },
+
+  unavailable: {
+    color: Colors.subtext,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+
+  source: {
+    color: Colors.subtext,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 16,
+    textAlign: "center",
   },
 });

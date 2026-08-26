@@ -24,7 +24,12 @@ export function useProfile() {
     const { data, error } = await getProfile(user.id);
 
     if (!error && data) {
-      setUserData({
+      // Merge rather than replace. The occupation IDs captured during
+      // onboarding have no column in `profiles` yet (Phase 2 adds them), so
+      // overwriting the whole object here used to drop them mid-session.
+      setUserData((prev) => ({
+        ...prev,
+
         userType: data.user_type || "",
         name: data.full_name || "",
         goal: data.goal || "",
@@ -39,7 +44,7 @@ export function useProfile() {
         targetSalary: data.target_salary ? data.target_salary.toString() : "",
 
         profileLoaded: true,
-      });
+      }));
     }
 
     setLoading(false);

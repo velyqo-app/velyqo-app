@@ -4,5 +4,20 @@
     "strict": true,
     "ignoreDeprecations": "6.0"
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+  "exclude": [
+    "node_modules",
+
+    // Deno edge function. Metro never bundles it, and typechecking it here
+    // fails on Deno globals that this config cannot resolve.
+    "supabase/functions",
+
+    // Unused Expo starter-template files kept for now at the team's request.
+    // They reference modules that do not exist in this project, so they are
+    // excluded rather than deleted. Remove these entries if the files are
+    // ever deleted or repaired.
+    "components/ui/collapsible.tsx",
+    "components/ui/icon-symbol.tsx",
+    "components/ui/icon-symbol.ios.tsx"
+  ]
 }

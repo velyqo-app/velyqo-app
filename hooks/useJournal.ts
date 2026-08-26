@@ -2,15 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 
 import { getCurrentUser } from "../services/authService";
 import { getJournal } from "../services/journalService";
+import { JournalEntry } from "../types/journal";
 
-export interface JournalEntry {
-  id: string;
-  user_id: string;
-  title: string;
-  description: string | null;
-  entry_type: string;
-  created_at: string;
-}
+export type { JournalEntry };
 
 export function useJournal() {
   const [loading, setLoading] = useState(true);

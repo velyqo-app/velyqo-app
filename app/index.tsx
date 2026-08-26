@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { getSession } from "../services/authService";
+import { getProfile } from "../services/profileService";
 
-type SessionStatus = "checking" | "signed-in" | "signed-out";
+type SessionStatus = "checking" | "signed-out" | "needs-onboarding" | "ready";
 
 export default function WelcomeScreen() {
   const [status, setStatus] = useState<SessionStatus>("checking");
@@ -19,8 +20,32 @@ export default function WelcomeScreen() {
           data: { session },
         } = await getSession();
 
+        if (!active) {
+          return;
+        }
+
+        if (!session) {
+          setStatus("signed-out");
+          return;
+        }
+
+        // A signed-in user without a saved profile has not finished
+        // onboarding, and the dashboard has nothing to show them.
+        let hasProfile: boolean;
+
+        try {
+          const { data: profile } = await getProfile(session.user.id);
+
+          hasProfile = Boolean(profile?.target_role);
+        } catch {
+          // Treat a lookup failure as "already onboarded", so a transient
+          // network error never pushes a returning user back through
+          // onboarding and over their saved answers.
+          hasProfile = true;
+        }
+
         if (active) {
-          setStatus(session ? "signed-in" : "signed-out");
+          setStatus(hasProfile ? "ready" : "needs-onboarding");
         }
       } catch {
         // A storage/network failure must still resolve, or the splash would
@@ -52,8 +77,12 @@ export default function WelcomeScreen() {
     return <View style={styles.loading} />;
   }
 
-  if (status === "signed-in") {
+  if (status === "ready") {
     return <Redirect href="/(app)/dashboard" />;
+  }
+
+  if (status === "needs-onboarding") {
+    return <Redirect href="/onboarding/name" />;
   }
 
   return (
@@ -74,10 +103,6 @@ export default function WelcomeScreen() {
         onPress={() => router.push("/login")}
       >
         <Text style={styles.secondaryText}>Sign In</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => router.push("/onboarding/name")}>
-        <Text style={styles.guestText}>Continue as Guest</Text>
       </TouchableOpacity>
     </View>
   );
@@ -138,12 +163,5 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "700",
-  },
-
-  guestText: {
-    color: "#94A3B8",
-    textAlign: "center",
-    marginTop: 28,
-    fontSize: 15,
   },
 });

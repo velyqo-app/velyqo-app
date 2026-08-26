@@ -3,20 +3,17 @@ import { useContext } from "react";
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { UserContext } from "../../context/UserContext";
-import { salaryData } from "../../data/salaries";
+import { getIndicativeSalary } from "../../data/salaries";
 import { supabase } from "../../lib/supabase";
 import { getCurrentUser } from "../../services/authService";
 
 export default function SummaryScreen() {
   const { userData } = useContext(UserContext);
 
-  const roleInfo =
-    salaryData[userData.targetRole.toLowerCase() as keyof typeof salaryData];
+  const roleInfo = getIndicativeSalary(userData.targetRole, userData.country);
 
   const saveProfile = async () => {
     const session = await getCurrentUser();
-
-    console.log(session);
 
     const {
       data: { user },
@@ -81,7 +78,7 @@ export default function SummaryScreen() {
         Target Salary:{" "}
         {userData.targetSalary
           ? `£${Number(userData.targetSalary).toLocaleString()}`
-          : "Using market average"}
+          : "Not provided"}
       </Text>
 
       {roleInfo && (
@@ -94,14 +91,20 @@ export default function SummaryScreen() {
             Salary Range: £{roleInfo.min.toLocaleString()} - £
             {roleInfo.max.toLocaleString()}
           </Text>
-        </>
-      )}
 
-      {roleInfo && userData.currentSalary && (
-        <Text style={styles.item}>
-          Potential Increase: £
-          {(roleInfo.average - Number(userData.currentSalary)).toLocaleString()}
-        </Text>
+          {userData.currentSalary ? (
+            <Text style={styles.item}>
+              Potential Increase: £
+              {(
+                roleInfo.average - Number(userData.currentSalary)
+              ).toLocaleString()}
+            </Text>
+          ) : null}
+
+          <Text style={styles.provenance}>
+            Indicative UK market estimate, not a figure specific to you.
+          </Text>
+        </>
       )}
 
       <TouchableOpacity style={styles.button} onPress={saveProfile}>
@@ -130,6 +133,13 @@ const styles = StyleSheet.create({
   item: {
     color: "#FFFFFF",
     fontSize: 18,
+    marginBottom: 12,
+  },
+
+  provenance: {
+    color: "#94A3B8",
+    fontSize: 12,
+    lineHeight: 18,
     marginBottom: 12,
   },
 

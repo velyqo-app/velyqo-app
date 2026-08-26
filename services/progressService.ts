@@ -1,11 +1,15 @@
 import { supabase } from "../lib/supabase";
 
+/**
+ * Uses maybeSingle so a user with no progress row yet resolves to `data: null`
+ * instead of throwing PGRST116.
+ */
 export async function getProgress(userId: string) {
   return await supabase
     .from("user_progress")
     .select("*")
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
 }
 
 export async function createProgress(userId: string) {

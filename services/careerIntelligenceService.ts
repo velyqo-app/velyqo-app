@@ -1,44 +1,33 @@
-import { salaryData } from "../data/salaries";
+import { Mission } from "../types/mission";
 import { getTodaysMission } from "./careerMissionService";
 
-interface Params {
-  goal: string;
-  currentRole: string;
-  targetRole: string;
-  currentSalary: string;
-  targetSalary: string;
+export interface CareerBrief {
+  mission: Mission;
+  estimatedTime: string;
+  nextMilestone: string;
+  impact: string;
 }
 
-export function generateCareerBrief({
-  goal,
-  currentRole,
-  targetRole,
-  currentSalary,
-  targetSalary,
-}: Params) {
-  const role = salaryData[targetRole.toLowerCase() as keyof typeof salaryData];
-
+/**
+ * Builds the mission-derived part of the dashboard's Career Brief.
+ *
+ * This used to also compute a readiness score from profile completeness and a
+ * projected salary, but useDashboard overwrote the readiness with the real
+ * stored value and nothing read the projected salary, so both were dead.
+ * Readiness now has a single source: the `user_progress` row.
+ */
+export function generateCareerBrief(targetRole: string): CareerBrief {
   const mission = getTodaysMission(targetRole);
 
-  let readiness = 0;
-
-  if (goal) readiness += 20;
-  if (currentRole) readiness += 20;
-  if (targetRole) readiness += 20;
-  if (currentSalary) readiness += 20;
-  if (targetSalary) readiness += 20;
-
   return {
-    readiness,
-
     mission,
 
     estimatedTime: mission.estimatedTime,
 
+    // Until the roadmap exists (Phase 3) there is no real milestone to point
+    // at, so the mission itself stands in as the next step.
     nextMilestone: mission.title,
 
     impact: mission.impact,
-
-    projectedSalary: role?.average ?? 0,
   };
 }

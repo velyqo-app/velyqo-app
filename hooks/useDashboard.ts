@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { salaryData } from "../data/salaries";
+import { getIndicativeSalary } from "../data/salaries";
 
 import { useProfile } from "./useProfile";
 import { useProgress } from "./useProgress";
@@ -16,23 +16,32 @@ export function useDashboard() {
   const { loading: progressLoading, progress } = useProgress();
 
   const dashboard = useMemo(() => {
-    const roleInfo =
-      salaryData[userData.targetRole.toLowerCase() as keyof typeof salaryData];
+    // Null whenever we have no reliable figure for this role and country.
+    const roleInfo = getIndicativeSalary(userData.targetRole, userData.country);
+
+    // The user's own stated target is real data and always wins. The seeded
+    // market average is only a fallback, and if neither exists the card must
+    // render an unavailable state rather than a zero.
+    const statedTargetSalary = Number(userData.targetSalary) || null;
+
+    const targetSalary = statedTargetSalary ?? roleInfo?.average ?? null;
+
+    const targetSalarySource = statedTargetSalary
+      ? ("stated" as const)
+      : roleInfo
+        ? ("market" as const)
+        : null;
 
     const recommendation = getRecommendation(userData.goal);
 
-    const careerBrief = generateCareerBrief({
-      goal: userData.goal,
-      currentRole: userData.currentRole,
-      targetRole: userData.targetRole,
-      currentSalary: userData.currentSalary,
-      targetSalary: userData.targetSalary,
-    });
+    const careerBrief = generateCareerBrief(userData.targetRole);
 
     const momentum = getMomentum(progress.current_streak);
 
     return {
       roleInfo,
+      targetSalary,
+      targetSalarySource,
       recommendation,
       momentum,
 
