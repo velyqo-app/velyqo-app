@@ -1,23 +1,60 @@
-import { router } from "expo-router";
-import { useEffect } from "react";
+import { Redirect, router } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { getSession } from "../services/authService";
 
+type SessionStatus = "checking" | "signed-in" | "signed-out";
+
 export default function WelcomeScreen() {
+  const [status, setStatus] = useState<SessionStatus>("checking");
+
   useEffect(() => {
+    let active = true;
+
+    const checkSession = async () => {
+      try {
+        const {
+          data: { session },
+        } = await getSession();
+
+        if (active) {
+          setStatus(session ? "signed-in" : "signed-out");
+        }
+      } catch {
+        // A storage/network failure must still resolve, or the splash would
+        // stay up forever. Fall back to the signed-out screen.
+        if (active) {
+          setStatus("signed-out");
+        }
+      }
+    };
+
     checkSession();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const checkSession = async () => {
-    const {
-      data: { session },
-    } = await getSession();
-
-    if (session) {
-      router.replace("/(app)/dashboard");
+  // Runs after the render that resolved the check has committed, so the
+  // redirect is already in place by the time the splash lifts.
+  useEffect(() => {
+    if (status !== "checking") {
+      SplashScreen.hideAsync().catch(() => {});
     }
-  };
+  }, [status]);
+
+  if (status === "checking") {
+    // Invisible under the native splash. On web the splash APIs are no-ops,
+    // so this shows the brand background instead of the Welcome screen.
+    return <View style={styles.loading} />;
+  }
+
+  if (status === "signed-in") {
+    return <Redirect href="/(app)/dashboard" />;
+  }
 
   return (
     <View style={styles.container}>
@@ -47,6 +84,11 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    backgroundColor: "#0B1120",
+  },
+
   container: {
     flex: 1,
     backgroundColor: "#0B1120",

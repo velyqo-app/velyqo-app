@@ -1,11 +1,18 @@
 import { Stack } from "expo-router";
 import { DarkTheme, ThemeProvider } from "expo-router/react-navigation";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { AppState, Platform } from "react-native";
 
 import { UserProvider } from "../context/UserContext";
 import { supabase } from "../lib/supabase";
+
+// Keep the native splash up until the initial session check resolves, so the
+// Welcome screen never flashes for an already signed-in user. Called in global
+// scope rather than in a hook, otherwise the splash may already be hidden.
+// index.tsx owns the matching hideAsync().
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   // Refresh the stored session only while the app is foregrounded.
