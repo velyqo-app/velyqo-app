@@ -27,9 +27,21 @@ export default function TargetRoleScreen() {
   };
 
   const handleContinue = () => {
-    if (!userData.targetOccupationId) {
-      alert("Please select your target occupation.");
+    const typed = query.trim();
+
+    // The occupation catalogue does not cover every role, so a user whose
+    // target returns no matches must still be able to continue.
+    if (!userData.targetOccupationId && !typed) {
+      alert("Please enter your target occupation.");
       return;
+    }
+
+    if (!userData.targetOccupationId) {
+      setUserData((prev) => ({
+        ...prev,
+        targetRole: typed,
+        targetOccupationId: null,
+      }));
     }
 
     clearSearch();

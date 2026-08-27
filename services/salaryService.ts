@@ -31,13 +31,32 @@ export interface SalaryBand {
 
   last_updated: string | null;
 
-  experience_level?: {
-    id: string;
-    code: string;
-    name: string;
-    sort_order: number;
+  /**
+   * Shape of the embedded join, not a flat `experience_level` field.
+   *
+   * Both hops are many-to-one (`occupation_experience_level_id` and
+   * `experience_level_id`), so PostgREST nests an object at each level rather
+   * than an array. Read it through `getBandExperienceLevel` instead of
+   * reaching into it directly.
+   */
+  occupation_experience_levels?: {
+    experience_levels: ExperienceLevel | null;
   } | null;
 }
+
+export interface ExperienceLevel {
+  id: string;
+  code: string;
+  name: string;
+  sort_order: number;
+}
+
+/** Flattens the embedded join, which is absent on occupation-wide bands. */
+export const getBandExperienceLevel = (
+  band: SalaryBand,
+): ExperienceLevel | null => {
+  return band.occupation_experience_levels?.experience_levels ?? null;
+};
 
 export const getSalaryBands = async (
   occupationId: string,
@@ -60,5 +79,6 @@ export const getSalaryBands = async (
     )
     .eq("occupation_id", occupationId)
     .eq("country_code", countryCode)
-    .order("scope", { ascending: true });
+    .order("scope", { ascending: true })
+    .returns<SalaryBand[]>();
 };

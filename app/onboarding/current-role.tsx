@@ -27,9 +27,21 @@ export default function CurrentRoleScreen() {
   };
 
   const handleContinue = () => {
-    if (!userData.currentOccupationId) {
-      alert("Please select your current occupation.");
+    const typed = query.trim();
+
+    // The occupation catalogue does not cover every role, so a user whose job
+    // returns no matches must still be able to continue.
+    if (!userData.currentOccupationId && !typed) {
+      alert("Please enter your current occupation.");
       return;
+    }
+
+    if (!userData.currentOccupationId) {
+      setUserData((prev) => ({
+        ...prev,
+        currentRole: typed,
+        currentOccupationId: null,
+      }));
     }
 
     clearSearch();

@@ -1,7 +1,9 @@
 import { router } from "expo-router";
+import { useContext, useState } from "react";
 import { useProfile } from "../../hooks/useProfile";
 
 import {
+  Alert,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -9,11 +11,36 @@ import {
   View,
 } from "react-native";
 
+import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
 import { Colors } from "../../constants/theme";
+import { UserContext } from "../../context/UserContext";
+import { signOut } from "../../services/authService";
 
 export default function ProfileScreen() {
   const { userData } = useProfile();
+
+  const { clearUserData } = useContext(UserContext);
+
+  const [signingOut, setSigningOut] = useState(false);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+
+    const { error } = await signOut();
+
+    if (error) {
+      setSigningOut(false);
+      Alert.alert("Sign Out Failed", error.message);
+      return;
+    }
+
+    // Drop the previous user's details so they can't briefly show for whoever
+    // signs in next.
+    clearUserData();
+
+    router.replace("/");
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -62,6 +89,15 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Country</Text>
 
           <Text style={styles.value}>{userData.country || "Not Set"}</Text>
+        </Card>
+
+        <Card>
+          <Button
+            title={signingOut ? "Signing out..." : "Sign Out"}
+            variant="secondary"
+            disabled={signingOut}
+            onPress={handleSignOut}
+          />
         </Card>
       </View>
     </SafeAreaView>

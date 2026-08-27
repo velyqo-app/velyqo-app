@@ -1,5 +1,4 @@
 import { router } from "expo-router";
-import { useContext } from "react";
 import {
   SafeAreaView,
   ScrollView,
@@ -9,27 +8,83 @@ import {
   View,
 } from "react-native";
 
+import RoadmapStep from "../../components/RoadmapStep";
 import Card from "../../components/ui/Card";
+import LoadingScreen from "../../components/ui/LoadingScreen";
 import { Colors } from "../../constants/theme";
-import { UserContext } from "../../context/UserContext";
-import { careerData } from "../../data/careerData";
-import { getIndicativeSalary } from "../../data/salaries";
+import { useRoadmap } from "../../hooks/useRoadmap";
+import { RoadmapEndpoint, RoadmapLimitation } from "../../types/roadmap";
+
+const LIMITATION_TEXT: Record<RoadmapLimitation, string> = {
+  CURRENT_ROLE_NOT_IN_CATALOGUE:
+    "Your current role isn't in our occupation data yet, so we can't map it to market information.",
+  TARGET_ROLE_NOT_IN_CATALOGUE:
+    "Your target role isn't in our occupation data yet, so we can't map it to market information.",
+  UNKNOWN_LEVEL:
+    "We couldn't work out the seniority of one of these roles, so the steps may be incomplete.",
+  NO_LADDER_DATA:
+    "We don't have the intermediate roles between these two positions yet.",
+  NO_COUNTRY: "We don't have salary data for your selected country.",
+  NO_SALARY_DATA:
+    "No verified salary data is available for these roles yet.",
+  AI_UNAVAILABLE:
+    "We couldn't build detailed steps for this transition right now. Please try again shortly.",
+};
+
+function formatMoney(currency: string, amount: number) {
+  return `${currency} ${amount.toLocaleString()}`;
+}
+
+function EndpointSalary({
+  label,
+  endpoint,
+}: {
+  label: string;
+  endpoint: RoadmapEndpoint;
+}) {
+  return (
+    <View style={styles.endpointBlock}>
+      <Text style={styles.endpointLabel}>{label}</Text>
+
+      {endpoint.salary ? (
+        <>
+          <Text style={styles.salary}>
+            {formatMoney(endpoint.salary.currency, endpoint.salary.median)}
+          </Text>
+
+          <Text style={styles.range}>
+            {formatMoney(endpoint.salary.currency, endpoint.salary.low)} –{" "}
+            {formatMoney(endpoint.salary.currency, endpoint.salary.high)}
+          </Text>
+
+          <Text style={styles.provenance}>
+            {endpoint.salary.dataType.toLowerCase()} data
+            {endpoint.salary.source ? ` · ${endpoint.salary.source}` : ""} ·{" "}
+            {endpoint.salary.confidence}% confidence
+          </Text>
+        </>
+      ) : (
+        <Text style={styles.unavailable}>
+          No verified market data for this role yet.
+        </Text>
+      )}
+
+      {/* The user's own figure, kept visually separate from market data. */}
+      {endpoint.statedSalary !== null && (
+        <Text style={styles.stated}>
+          You told us: {endpoint.statedSalary.toLocaleString()}
+        </Text>
+      )}
+    </View>
+  );
+}
 
 export default function TimelineScreen() {
-  const { userData } = useContext(UserContext);
+  const { loading, roadmap } = useRoadmap();
 
-  const roleKey = userData.targetRole.toLowerCase();
-
-  const roleData = careerData[roleKey as keyof typeof careerData];
-
-  const salary = getIndicativeSalary(userData.targetRole, userData.country);
-
-  const roadmap = roleData?.roadmap || [
-    { step: "Learn key skills", time: "1-2 months" },
-    { step: "Complete certifications", time: "2-4 months" },
-    { step: "Build practical experience", time: "3-6 months" },
-    { step: "Apply for opportunities", time: "1-3 months" },
-  ];
+  if (loading) {
+    return <LoadingScreen message="Building your career roadmap..." />;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -47,73 +102,99 @@ export default function TimelineScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.currentRole}>{userData.currentRole}</Text>
-
-        <Text style={styles.arrow}>↓</Text>
-
-        <Text style={styles.targetRole}>{userData.targetRole}</Text>
-
-        {salary && (
+        {!roadmap ? (
           <Card>
-            <Text style={styles.cardTitle}>Expected Salary</Text>
+            <Text style={styles.emptyTitle}>No roadmap yet</Text>
 
-            <Text style={styles.salary}>
-              £{salary.average.toLocaleString()}
-            </Text>
-
-            <Text style={styles.range}>
-              £{salary.min.toLocaleString()} - £{salary.max.toLocaleString()}
-            </Text>
-
-            <Text style={styles.provenance}>
-              Indicative UK market estimate, not a figure specific to you.
+            <Text style={styles.emptyText}>
+              Add a target role to your profile and your career roadmap will
+              appear here.
             </Text>
           </Card>
-        )}
+        ) : (
+          <>
+            <Text style={styles.currentRole}>{roadmap.current.title}</Text>
 
-        {roleData && (
-          <Card>
-            <Text style={styles.cardTitle}>Skills To Develop</Text>
+            <Text style={styles.arrow}>↓</Text>
 
-            {roleData.skills.map((skill, index) => (
-              <Text key={index} style={styles.skill}>
-                ✓ {skill}
-              </Text>
-            ))}
-          </Card>
-        )}
+            <Text style={styles.targetRole}>{roadmap.target.title}</Text>
 
-        <Text style={styles.section}>Career Roadmap</Text>
-
-        {roadmap.map((item, index) => (
-          <View key={index} style={styles.stepContainer}>
-            <Card>
-              <Text style={styles.stepNumber}>STEP {index + 1}</Text>
-
-              <Text style={styles.step}>{item.step}</Text>
-
-              <Text style={styles.time}>⏱ {item.time}</Text>
-            </Card>
-
-            {index < roadmap.length - 1 && <Text style={styles.arrow}>↓</Text>}
-          </View>
-        ))}
-
-        {salary &&
-          userData.targetSalary &&
-          Number(userData.targetSalary) > salary.max && (
-            <>
-              <Text style={styles.section}>Future Career Path</Text>
-
+            {/* Summary and transferable skills only exist on generated
+                roadmaps, so both are rendered conditionally. */}
+            {roadmap.summary ? (
               <Card>
-                {salary.nextRoles.map((role, index) => (
-                  <Text key={index} style={styles.skill}>
-                    • {role}
+                <Text style={styles.cardTitle}>Your transition</Text>
+
+                <Text style={styles.summary}>{roadmap.summary}</Text>
+              </Card>
+            ) : null}
+
+            {roadmap.transferableSkills.length > 0 && (
+              <Card>
+                <Text style={styles.cardTitle}>What you already bring</Text>
+
+                {roadmap.transferableSkills.map((skill) => (
+                  <Text key={skill} style={styles.skill}>
+                    ✓ {skill}
                   </Text>
                 ))}
               </Card>
-            </>
-          )}
+            )}
+
+            {roadmap.nextAction ? (
+              <Card>
+                <Text style={styles.cardTitle}>Recommended next step</Text>
+
+                <Text style={styles.nextAction}>{roadmap.nextAction}</Text>
+              </Card>
+            ) : null}
+
+            <Card>
+              <Text style={styles.cardTitle}>Salary</Text>
+
+              <EndpointSalary label="CURRENT ROLE" endpoint={roadmap.current} />
+
+              <View style={styles.divider} />
+
+              <EndpointSalary label="TARGET ROLE" endpoint={roadmap.target} />
+            </Card>
+
+            <Text style={styles.section}>Career Roadmap</Text>
+
+            {roadmap.steps.length === 0 ? (
+              <Card>
+                <Text style={styles.unavailable}>
+                  We can&apos;t map the steps between these two roles yet. Your
+                  current and target roles are still shown above.
+                </Text>
+              </Card>
+            ) : (
+              roadmap.steps.map((step, index) => (
+                <View key={step.id} style={styles.stepContainer}>
+                  <RoadmapStep index={index} step={step} />
+
+                  {index < roadmap.steps.length - 1 && (
+                    <Text style={styles.arrow}>↓</Text>
+                  )}
+                </View>
+              ))
+            )}
+
+            {roadmap.limitations.length > 0 && (
+              <>
+                <Text style={styles.section}>What we don&apos;t know yet</Text>
+
+                <Card>
+                  {roadmap.limitations.map((limitation) => (
+                    <Text key={limitation} style={styles.limitation}>
+                      • {LIMITATION_TEXT[limitation]}
+                    </Text>
+                  ))}
+                </Card>
+              </>
+            )}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -184,31 +265,70 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
 
-  salary: {
-    color: Colors.success,
-    fontSize: 32,
-    fontWeight: "800",
-    textAlign: "center",
+  nextAction: {
+    color: Colors.primary,
+    fontSize: 18,
+    fontWeight: "700",
   },
 
-  range: {
-    color: Colors.subtext,
-    textAlign: "center",
-    marginTop: 10,
-  },
-
-  provenance: {
-    color: Colors.subtext,
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: "center",
-    marginTop: 14,
+  summary: {
+    color: Colors.text,
+    fontSize: 15,
+    lineHeight: 23,
   },
 
   skill: {
     color: Colors.text,
     fontSize: 16,
     marginBottom: 10,
+  },
+
+  endpointBlock: {
+    marginBottom: 4,
+  },
+
+  endpointLabel: {
+    color: Colors.subtext,
+    fontSize: 13,
+    letterSpacing: 1,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+
+  salary: {
+    color: Colors.success,
+    fontSize: 26,
+    fontWeight: "800",
+  },
+
+  range: {
+    color: Colors.subtext,
+    marginTop: 6,
+  },
+
+  provenance: {
+    color: Colors.subtext,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 10,
+  },
+
+  stated: {
+    color: Colors.text,
+    fontSize: 14,
+    marginTop: 10,
+  },
+
+  unavailable: {
+    color: Colors.subtext,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: 18,
   },
 
   section: {
@@ -223,21 +343,24 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
-  stepNumber: {
-    color: Colors.primary,
-    fontSize: 13,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-
-  step: {
-    color: Colors.text,
-    fontSize: 18,
-    fontWeight: "600",
-  },
-
-  time: {
+  limitation: {
     color: Colors.subtext,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+
+  emptyTitle: {
+    color: Colors.text,
+    fontSize: 22,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+
+  emptyText: {
+    color: Colors.subtext,
+    textAlign: "center",
     marginTop: 12,
+    lineHeight: 24,
   },
 });

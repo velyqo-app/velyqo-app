@@ -34,13 +34,24 @@ export default function WelcomeScreen() {
         let hasProfile: boolean;
 
         try {
-          const { data: profile } = await getProfile(session.user.id);
+          const { data: profile, error } = await getProfile(session.user.id);
 
-          hasProfile = Boolean(profile?.target_role);
-        } catch {
-          // Treat a lookup failure as "already onboarded", so a transient
-          // network error never pushes a returning user back through
-          // onboarding and over their saved answers.
+          if (error) {
+            // supabase-js returns read failures here rather than throwing, so
+            // this must be checked explicitly. A failed read is not the same
+            // as "no profile": assume the user is onboarded so a transient
+            // failure never pushes them back through onboarding and over
+            // their saved answers.
+            console.warn("Profile read failed, assuming onboarded:", error);
+
+            hasProfile = true;
+          } else {
+            hasProfile = Boolean(profile?.target_role);
+          }
+        } catch (thrown) {
+          // Backstop for a rejected request rather than a returned error.
+          console.warn("Profile read threw, assuming onboarded:", thrown);
+
           hasProfile = true;
         }
 
