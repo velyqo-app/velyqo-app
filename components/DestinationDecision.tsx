@@ -33,10 +33,11 @@ export default function DestinationDecision({ comparison, onChoose }: Props) {
       <Card>
         <Text style={styles.title}>Your target salary may need a step up</Text>
 
+        <Text style={styles.roleTitle}>{requestedTitle}</Text>
+
         <View style={styles.row}>
           <View style={styles.column}>
             <Text style={styles.label}>YOU REQUESTED</Text>
-            <Text style={styles.value}>{requestedTitle}</Text>
             <Text style={styles.salary}>
               {formatMoney(band.currency, requestedSalary)}
             </Text>
@@ -44,7 +45,6 @@ export default function DestinationDecision({ comparison, onChoose }: Props) {
 
           <View style={styles.column}>
             <Text style={styles.label}>VERIFIED MARKET RANGE</Text>
-            <Text style={styles.value}>{requestedTitle}</Text>
             <Text style={styles.range}>
               {formatMoney(band.currency, band.low)} –{" "}
               {formatMoney(band.currency, band.high)}
@@ -101,6 +101,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
+  roleTitle: {
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -116,13 +124,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     fontWeight: "700",
     marginBottom: 8,
-  },
-
-  value: {
-    color: Colors.text,
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 6,
   },
 
   salary: {
