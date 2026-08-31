@@ -22,7 +22,7 @@ export default function TargetSalaryScreen() {
       targetSalary: salary,
     });
 
-    router.push("/onboarding/summary");
+    router.push("/onboarding/target-timeframe");
   };
 
   return (
@@ -62,7 +62,7 @@ export default function TargetSalaryScreen() {
             targetSalary: "",
           });
 
-          router.push("/onboarding/summary");
+          router.push("/onboarding/target-timeframe");
         }}
       >
         <Text style={styles.skipText}>Skip for now</Text>

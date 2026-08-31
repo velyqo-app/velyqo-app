@@ -91,6 +91,28 @@ export interface RoadmapEndpoint {
 }
 
 /**
+ * Total time from today to the target role, derived from the roadmap's own
+ * steps rather than invented.
+ *
+ * `minMonths`/`maxMonths` are always bounded by the steps' own estimates —
+ * never shorter than the single longest step, never longer than adding every
+ * step up sequentially. Within that envelope they may reflect the AI's
+ * reasoning about which steps can overlap, so the range is not simply the
+ * sum of every step's estimate.
+ */
+export interface RoadmapJourneyEstimate {
+  minMonths: number;
+
+  maxMonths: number;
+
+  /** How many steps had a usable time estimate. */
+  stepsCounted: number;
+
+  /** Total steps in the roadmap, for an honest "based on N of M" caveat. */
+  stepsTotal: number;
+}
+
+/**
  * How the steps were produced.
  *
  * `catalogue` — every step is a verified occupation from the database.
@@ -112,6 +134,16 @@ export interface Roadmap {
 
   /** Skills the user already has that carry into the target role. */
   transferableSkills: string[];
+
+  /**
+   * Formal qualifications, licensing, or registration the AI believes the
+   * target profession requires. This is the model's own knowledge, not a
+   * database fact — render it labelled as AI guidance, never as verified.
+   */
+  regulatoryConsiderations: string[];
+
+  /** Null when no step has a usable time estimate — never a guess. */
+  estimatedJourney: RoadmapJourneyEstimate | null;
 
   generation: RoadmapGeneration;
 

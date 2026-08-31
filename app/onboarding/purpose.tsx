@@ -28,7 +28,7 @@ export default function PurposeScreen() {
             goal: "Advance my career",
           });
 
-          router.push("/onboarding/country");
+          router.push("/onboarding/starting-situation");
         }}
       >
         <Text style={styles.optionText}>📈 Advance my career</Text>
@@ -42,7 +42,7 @@ export default function PurposeScreen() {
             goal: "Change careers",
           });
 
-          router.push("/onboarding/country");
+          router.push("/onboarding/starting-situation");
         }}
       >
         <Text style={styles.optionText}>🔄 Change careers</Text>
@@ -56,7 +56,7 @@ export default function PurposeScreen() {
             goal: "Explore careers",
           });
 
-          router.push("/onboarding/country");
+          router.push("/onboarding/starting-situation");
         }}
       >
         <Text style={styles.optionText}>🧭 Explore careers</Text>
@@ -70,7 +70,7 @@ export default function PurposeScreen() {
             goal: "Increase my income",
           });
 
-          router.push("/onboarding/country");
+          router.push("/onboarding/starting-situation");
         }}
       >
         <Text style={styles.optionText}>💰 Increase my income</Text>
@@ -84,7 +84,7 @@ export default function PurposeScreen() {
             goal: "Plan my future",
           });
 
-          router.push("/onboarding/country");
+          router.push("/onboarding/starting-situation");
         }}
       >
         <Text style={styles.optionText}>🚀 Plan my future</Text>

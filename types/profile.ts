@@ -24,4 +24,19 @@ export interface Profile {
   target_role: string | null;
 
   target_salary: number | null;
+
+  current_occupation_id: string | null;
+
+  target_occupation_id: string | null;
+
+  starting_situation: string | null;
+
+  experience_level: string | null;
+
+  education_level: string | null;
+
+  /** Postgres text[]. Absent (pre-migration) reads as null, not []. */
+  skills: string[] | null;
+
+  target_timeframe: string | null;
 }

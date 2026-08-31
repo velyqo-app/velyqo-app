@@ -36,12 +36,20 @@ export function useProfile() {
         country: data.country || "",
 
         currentRole: data.current_role || "",
+        currentOccupationId: data.current_occupation_id || null,
         currentSalary: data.current_salary
           ? data.current_salary.toString()
           : "",
 
         targetRole: data.target_role || "",
+        targetOccupationId: data.target_occupation_id || null,
         targetSalary: data.target_salary ? data.target_salary.toString() : "",
+
+        startingSituation: data.starting_situation || "",
+        experienceLevel: data.experience_level || "",
+        educationLevel: data.education_level || "",
+        skills: data.skills || [],
+        targetTimeframe: data.target_timeframe || "",
 
         profileLoaded: true,
       }));

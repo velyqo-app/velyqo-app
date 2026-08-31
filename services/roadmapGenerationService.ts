@@ -14,11 +14,20 @@ export interface GeneratedStep {
 export interface GeneratedRoadmap {
   summary: string;
   transferableSkills: string[];
+  regulatoryConsiderations: string[];
+
+  /**
+   * The AI's own estimate of total time, reasoning about overlap between
+   * steps rather than a blind sum. Null when absent or malformed — the
+   * caller falls back to its own bounds computed from the step estimates.
+   */
+  estimatedJourney: string | null;
+
   steps: GeneratedStep[];
 }
 
 const MIN_STEPS = 2;
-const MAX_STEPS = 5;
+const MAX_STEPS = 8;
 
 /**
  * Phrasings copied from the old hardcoded roadmap. Their presence means the
@@ -223,6 +232,15 @@ export function parseGeneratedRoadmap(
   return {
     summary,
     transferableSkills: toStringArray(candidate.transferableSkills),
+
+    // Optional and AI-asserted rather than database-verified — absent or
+    // malformed means "none noted", never a parse failure.
+    regulatoryConsiderations: toStringArray(candidate.regulatoryConsiderations),
+
+    estimatedJourney: isNonEmptyString(candidate.estimatedJourney)
+      ? candidate.estimatedJourney.trim()
+      : null,
+
     steps,
   };
 }

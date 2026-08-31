@@ -3,6 +3,7 @@ import {
   Roadmap,
   RoadmapEndpoint,
   RoadmapGeneration,
+  RoadmapJourneyEstimate,
   RoadmapLimitation,
   RoadmapSalary,
   RoadmapStep,
@@ -14,6 +15,12 @@ import {
 } from "./occupationService";
 import { generateRoadmap } from "./roadmapGenerationService";
 import { SalaryBand, getSalaryBands } from "./salaryService";
+import {
+  EducationLevel,
+  ExperienceLevel,
+  StartingSituation,
+  TargetTimeframe,
+} from "../types/careerContext";
 
 export interface RoadmapInput {
   currentRole: string;
@@ -32,6 +39,14 @@ export interface RoadmapInput {
 
   /** The user's stated goal from onboarding. */
   purpose: string | null;
+
+  /** "" on a profile that predates this phase — the prompt degrades to the
+   * original Phase 2 framing when any of these are unset. */
+  startingSituation: StartingSituation | "";
+  experienceLevel: ExperienceLevel | "";
+  educationLevel: EducationLevel | "";
+  skills: string[];
+  targetTimeframe: TargetTimeframe | "";
 }
 
 /**
@@ -59,6 +74,121 @@ const LEVEL_RANK: Record<string, number> = {
   vp: 130,
   executive: 140,
 };
+
+interface MonthRange {
+  min: number;
+  max: number;
+}
+
+const MONTHS_PER_UNIT: Record<string, number> = {
+  week: 1 / 4.345,
+  weeks: 1 / 4.345,
+  month: 1,
+  months: 1,
+  year: 12,
+  years: 12,
+};
+
+/**
+ * Parses a step's free-text duration (e.g. "3-6 months", "1-2 years") into a
+ * month range. Returns null for anything that doesn't match the shape the
+ * prompt asks for, rather than guessing at a malformed value.
+ */
+function parseDurationRange(text: string | null): MonthRange | null {
+  if (!text) {
+    return null;
+  }
+
+  const match = text
+    .trim()
+    .toLowerCase()
+    .match(
+      /^~?\s*(\d+(?:\.\d+)?)\s*(?:[-–—]|to)\s*(\d+(?:\.\d+)?)\s*(week|weeks|month|months|year|years)\b|^~?\s*(\d+(?:\.\d+)?)\s*(week|weeks|month|months|year|years)\b/,
+    );
+
+  if (!match) {
+    return null;
+  }
+
+  // Two alternatives in the pattern above: a "min-max unit" range, or a
+  // single "n unit" value in the second half of the alternation.
+  if (match[3]) {
+    const unit = MONTHS_PER_UNIT[match[3]];
+
+    const min = parseFloat(match[1]) * unit;
+    const max = parseFloat(match[2]) * unit;
+
+    return min <= max ? { min, max } : { min: max, max: min };
+  }
+
+  const unit = MONTHS_PER_UNIT[match[5]];
+  const value = parseFloat(match[4]) * unit;
+
+  return { min: value, max: value };
+}
+
+/**
+ * Bounds and, where possible, the AI's own reasoning about overlap, combined
+ * into one honest total.
+ *
+ * The AI's estimate is never trusted outright — it is clamped so it can never
+ * be shorter than the roadmap's single longest step, nor longer than adding
+ * every step up sequentially. Both bounds come only from the steps actually
+ * on screen, so the total can never contradict what the user can already see
+ * and can never be a number invented independently of the roadmap.
+ */
+function buildJourneyEstimate(
+  steps: RoadmapStep[],
+  aiEstimatedJourney: string | null,
+): RoadmapJourneyEstimate | null {
+  const parsed = steps
+    .map((step) => parseDurationRange(step.estimatedTime))
+    .filter((range): range is MonthRange => range !== null);
+
+  if (parsed.length === 0) {
+    return null;
+  }
+
+  const sequentialMin = parsed.reduce((sum, range) => sum + range.min, 0);
+  const sequentialMax = parsed.reduce((sum, range) => sum + range.max, 0);
+  const longestStepMin = Math.max(...parsed.map((range) => range.min));
+
+  const lowerBound = longestStepMin;
+  const upperBound = sequentialMax;
+
+  const aiRange = parseDurationRange(aiEstimatedJourney);
+
+  const clamp = (value: number) =>
+    Math.min(upperBound, Math.max(lowerBound, value));
+
+  let minMonths = lowerBound;
+  let maxMonths = upperBound;
+
+  if (aiRange) {
+    const clampedMin = clamp(aiRange.min);
+    const clampedMax = clamp(aiRange.max);
+
+    if (clampedMin <= clampedMax) {
+      minMonths = clampedMin;
+      maxMonths = clampedMax;
+    }
+    // An inverted result after clamping means the AI's figure didn't fit its
+    // own steps — fall back to the sequential bounds already assigned above
+    // rather than show something inconsistent with them.
+  } else {
+    // No usable AI estimate — the honest fallback is the sequential range
+    // itself, i.e. what a straight sum of the visible steps would show.
+    minMonths = sequentialMin;
+    maxMonths = sequentialMax;
+  }
+
+  return {
+    minMonths: Math.round(minMonths),
+    maxMonths: Math.round(maxMonths),
+    stepsCounted: parsed.length,
+    stepsTotal: steps.length,
+  };
+}
 
 function rankOf(level: string | null): number | null {
   if (!level) {
@@ -271,6 +401,11 @@ export async function buildRoadmap(input: RoadmapInput): Promise<Roadmap> {
     targetSalary: input.targetSalary,
     purpose: input.purpose,
     knownLadder: ladder.map((rung) => rung.title),
+    startingSituation: input.startingSituation,
+    experienceLevel: input.experienceLevel,
+    educationLevel: input.educationLevel,
+    skills: input.skills,
+    targetTimeframe: input.targetTimeframe,
   });
 
   const salaryByTitle = buildSalaryLookup(
@@ -320,6 +455,16 @@ export async function buildRoadmap(input: RoadmapInput): Promise<Roadmap> {
     steps,
     summary: generated?.summary ?? null,
     transferableSkills: generated?.transferableSkills ?? [],
+
+    // AI-asserted, not database-verified — the UI must label it as such.
+    regulatoryConsiderations: generated?.regulatoryConsiderations ?? [],
+
+    // Bounded by the steps themselves — see buildJourneyEstimate.
+    estimatedJourney: buildJourneyEstimate(
+      steps,
+      generated?.estimatedJourney ?? null,
+    ),
+
     generation,
     generatedAt: new Date().toISOString(),
     limitations: resolvedLimitations,

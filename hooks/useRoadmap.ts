@@ -10,9 +10,11 @@ import { useProfile } from "./useProfile";
  * Bump when the roadmap shape or generation logic changes, so cached roadmaps
  * built by an older version are discarded rather than rendered.
  */
-// v2: generated titles no longer carry "Step 1 -" style prefixes, so roadmaps
-// cached by v1 must be discarded rather than rendered with doubled numbering.
-const CACHE_VERSION = "v2";
+// v4: Roadmap now carries estimatedJourney, which a v3-cached roadmap lacks
+// entirely — rendering it would need a defensive null check anyway, but the
+// version bump also forces a fresh generation under the new overlap-aware
+// prompt rather than leaving old roadmaps stuck without a journey estimate.
+const CACHE_VERSION = "v4";
 
 const CACHE_PREFIX = "velyqo:roadmap";
 
@@ -27,6 +29,11 @@ function hashInputs(input: RoadmapInput): string {
     input.targetSalary,
     input.countryCode,
     input.purpose,
+    input.startingSituation,
+    input.experienceLevel,
+    input.educationLevel,
+    [...input.skills].sort().join(","),
+    input.targetTimeframe,
   ]
     .join("|")
     .toLowerCase();
@@ -85,6 +92,11 @@ export function useRoadmap() {
     targetSalary,
     country,
     goal,
+    startingSituation,
+    experienceLevel,
+    educationLevel,
+    skills,
+    targetTimeframe,
   } = userData;
 
   useEffect(() => {
@@ -115,6 +127,12 @@ export function useRoadmap() {
       countryCode: toCountryCode(country),
       country: country || null,
       purpose: goal || null,
+
+      startingSituation,
+      experienceLevel,
+      educationLevel,
+      skills,
+      targetTimeframe,
     };
 
     const key = cacheKey(input);
@@ -170,6 +188,11 @@ export function useRoadmap() {
     targetSalary,
     country,
     goal,
+    startingSituation,
+    experienceLevel,
+    educationLevel,
+    skills,
+    targetTimeframe,
   ]);
 
   return {

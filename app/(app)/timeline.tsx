@@ -13,7 +13,11 @@ import Card from "../../components/ui/Card";
 import LoadingScreen from "../../components/ui/LoadingScreen";
 import { Colors } from "../../constants/theme";
 import { useRoadmap } from "../../hooks/useRoadmap";
-import { RoadmapEndpoint, RoadmapLimitation } from "../../types/roadmap";
+import {
+  RoadmapEndpoint,
+  RoadmapJourneyEstimate,
+  RoadmapLimitation,
+} from "../../types/roadmap";
 
 const LIMITATION_TEXT: Record<RoadmapLimitation, string> = {
   CURRENT_ROLE_NOT_IN_CATALOGUE:
@@ -33,6 +37,45 @@ const LIMITATION_TEXT: Record<RoadmapLimitation, string> = {
 
 function formatMoney(currency: string, amount: number) {
   return `${currency} ${amount.toLocaleString()}`;
+}
+
+/** "24-36 months" -> "2-3 years"; leaves short journeys in months. */
+function formatJourneyHeadline(minMonths: number, maxMonths: number): string {
+  if (maxMonths < 18) {
+    return minMonths === maxMonths
+      ? `${minMonths} months`
+      : `${minMonths}-${maxMonths} months`;
+  }
+
+  const minYears = Math.max(1, Math.round(minMonths / 12));
+  const maxYears = Math.max(minYears, Math.round(maxMonths / 12));
+
+  return minYears === maxYears ? `${minYears} years` : `${minYears}-${maxYears} years`;
+}
+
+function JourneyEstimateCard({
+  estimate,
+}: {
+  estimate: RoadmapJourneyEstimate;
+}) {
+  const { minMonths, maxMonths, stepsCounted, stepsTotal } = estimate;
+
+  const partial = stepsCounted < stepsTotal;
+
+  return (
+    <Card>
+      <Text style={styles.journeyHeadline}>
+        Estimated journey: approximately{" "}
+        {formatJourneyHeadline(minMonths, maxMonths)}
+      </Text>
+
+      <Text style={styles.journeyDetail}>
+        {stepsTotal} step{stepsTotal === 1 ? "" : "s"} · {minMonths}–
+        {maxMonths} months estimated
+        {partial ? ` (based on ${stepsCounted} of ${stepsTotal} steps)` : ""}
+      </Text>
+    </Card>
+  );
 }
 
 function EndpointSalary({
@@ -119,6 +162,13 @@ export default function TimelineScreen() {
 
             <Text style={styles.targetRole}>{roadmap.target.title}</Text>
 
+            {/* Null whenever no step has a usable time estimate — e.g. a
+                catalogue-only roadmap, which carries no AI-generated
+                durations at all. Never a guessed fallback. */}
+            {roadmap.estimatedJourney ? (
+              <JourneyEstimateCard estimate={roadmap.estimatedJourney} />
+            ) : null}
+
             {/* Summary and transferable skills only exist on generated
                 roadmaps, so both are rendered conditionally. */}
             {roadmap.summary ? (
@@ -178,6 +228,20 @@ export default function TimelineScreen() {
                   )}
                 </View>
               ))
+            )}
+
+            {roadmap.regulatoryConsiderations.length > 0 && (
+              <Card>
+                <Text style={styles.cardTitle}>
+                  Regulatory considerations (AI-flagged, not verified)
+                </Text>
+
+                {roadmap.regulatoryConsiderations.map((note) => (
+                  <Text key={note} style={styles.limitation}>
+                    • {note}
+                  </Text>
+                ))}
+              </Card>
             )}
 
             {roadmap.limitations.length > 0 && (
@@ -269,6 +333,20 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontSize: 18,
     fontWeight: "700",
+  },
+
+  journeyHeadline: {
+    color: Colors.text,
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+
+  journeyDetail: {
+    color: Colors.subtext,
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 8,
   },
 
   summary: {

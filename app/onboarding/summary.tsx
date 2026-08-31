@@ -6,6 +6,12 @@ import { UserContext } from "../../context/UserContext";
 import { getIndicativeSalary } from "../../data/salaries";
 import { supabase } from "../../lib/supabase";
 import { getCurrentUser } from "../../services/authService";
+import {
+  EDUCATION_LEVEL_LABELS,
+  EXPERIENCE_LEVEL_LABELS,
+  STARTING_SITUATION_LABELS,
+  TARGET_TIMEFRAME_LABELS,
+} from "../../types/careerContext";
 
 export default function SummaryScreen() {
   const { userData } = useContext(UserContext);
@@ -31,13 +37,20 @@ export default function SummaryScreen() {
         goal: userData.goal,
         country: userData.country,
         current_role: userData.currentRole,
+        current_occupation_id: userData.currentOccupationId,
         current_salary: userData.currentSalary
           ? Number(userData.currentSalary)
           : null,
         target_role: userData.targetRole,
+        target_occupation_id: userData.targetOccupationId,
         target_salary: userData.targetSalary
           ? Number(userData.targetSalary)
           : null,
+        starting_situation: userData.startingSituation || null,
+        experience_level: userData.experienceLevel || null,
+        education_level: userData.educationLevel || null,
+        skills: userData.skills.length > 0 ? userData.skills : null,
+        target_timeframe: userData.targetTimeframe || null,
       },
       {
         onConflict: "user_id",
@@ -73,6 +86,34 @@ export default function SummaryScreen() {
       </Text>
 
       <Text style={styles.item}>Target Role: {userData.targetRole}</Text>
+
+      {userData.startingSituation ? (
+        <Text style={styles.item}>
+          Starting situation: {STARTING_SITUATION_LABELS[userData.startingSituation]}
+        </Text>
+      ) : null}
+
+      {userData.experienceLevel ? (
+        <Text style={styles.item}>
+          Experience: {EXPERIENCE_LEVEL_LABELS[userData.experienceLevel]}
+        </Text>
+      ) : null}
+
+      {userData.educationLevel ? (
+        <Text style={styles.item}>
+          Education: {EDUCATION_LEVEL_LABELS[userData.educationLevel]}
+        </Text>
+      ) : null}
+
+      {userData.skills.length > 0 ? (
+        <Text style={styles.item}>Skills: {userData.skills.join(", ")}</Text>
+      ) : null}
+
+      {userData.targetTimeframe ? (
+        <Text style={styles.item}>
+          Target timeframe: {TARGET_TIMEFRAME_LABELS[userData.targetTimeframe]}
+        </Text>
+      ) : null}
 
       <Text style={styles.item}>
         Target Salary:{" "}

@@ -13,7 +13,7 @@ export default function CountryScreen() {
       country,
     });
 
-    router.push("/onboarding/current-role");
+    router.push("/onboarding/current-salary");
   };
 
   return (

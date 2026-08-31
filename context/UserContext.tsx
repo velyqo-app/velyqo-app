@@ -1,5 +1,12 @@
 import React, { createContext, useState } from "react";
 
+import {
+  EducationLevel,
+  ExperienceLevel,
+  StartingSituation,
+  TargetTimeframe,
+} from "../types/careerContext";
+
 export interface UserData {
   userType: string;
   name: string;
@@ -13,6 +20,12 @@ export interface UserData {
   targetRole: string;
   targetOccupationId: string | null;
   targetSalary: string;
+
+  startingSituation: StartingSituation | "";
+  experienceLevel: ExperienceLevel | "";
+  educationLevel: EducationLevel | "";
+  skills: string[];
+  targetTimeframe: TargetTimeframe | "";
 
   profileLoaded: boolean;
 }
@@ -40,6 +53,12 @@ const defaultUser: UserData = {
   targetRole: "",
   targetOccupationId: null,
   targetSalary: "",
+
+  startingSituation: "",
+  experienceLevel: "",
+  educationLevel: "",
+  skills: [],
+  targetTimeframe: "",
 
   profileLoaded: false,
 };
