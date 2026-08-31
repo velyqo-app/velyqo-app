@@ -21,3 +21,24 @@ export function toCountryCode(country: string | null): string | null {
 
   return COUNTRY_CODES[country.trim().toLowerCase()] ?? null;
 }
+
+const CURRENCY_CODES: Record<string, string> = {
+  GB: "GBP",
+  US: "USD",
+  CA: "CAD",
+  AU: "AUD",
+};
+
+/**
+ * ISO 4217 currency for a country code, so the user's own stated salary can
+ * be labelled even when no market band exists to borrow a currency from.
+ * Null for an unmapped country — the figure then renders with no currency
+ * label rather than a guessed one.
+ */
+export function toCurrencyCode(countryCode: string | null): string | null {
+  if (!countryCode) {
+    return null;
+  }
+
+  return CURRENCY_CODES[countryCode] ?? null;
+}

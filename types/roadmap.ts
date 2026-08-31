@@ -1,3 +1,5 @@
+import { SalaryPriority } from "./careerContext";
+
 /**
  * Verified market salary for one point on the roadmap.
  *
@@ -61,6 +63,19 @@ export interface RoadmapStep {
 }
 
 /**
+ * One display-only career suggestion, distinct from the roadmap's target.
+ * AI-derived guidance, not a database fact — never carries its own salary
+ * figure unless it happens to match a catalogued occupation elsewhere.
+ */
+export interface AlternativeCareer {
+  title: string;
+
+  /** Must reference something specific to this person, not a generic reason
+   * that would apply to anyone — enforced when parsing the AI response. */
+  whySuitable: string;
+}
+
+/**
  * Machine-readable reasons a roadmap is less complete than it could be, so the
  * UI can explain the gap instead of silently rendering a thinner roadmap.
  */
@@ -88,6 +103,13 @@ export interface RoadmapEndpoint {
    * figure rather than market data — never present it as the latter.
    */
   statedSalary: number | null;
+
+  /**
+   * Currency to display `statedSalary` in, derived from the user's country —
+   * independent of whether `salary` (market data) exists, so a stated figure
+   * is never left unlabelled just because the role has no verified band.
+   */
+  currency: string | null;
 }
 
 /**
@@ -121,10 +143,36 @@ export interface RoadmapJourneyEstimate {
  */
 export type RoadmapGeneration = "catalogue" | "ai" | "endpoints-only";
 
+/**
+ * Present only when this roadmap's `target` is NOT the role the user
+ * originally entered — i.e. they hit a confirmed salary conflict and chose
+ * "salary" or "balance" over their requested role. Exists so the UI can
+ * always say plainly "you asked for X; this targets Y because Z," and never
+ * silently substitute one for the other.
+ *
+ * Absent (null) whenever `target` is exactly what was requested — which is
+ * the deliberate, common case: no conflict, or the user chose to keep their
+ * requested role.
+ */
+export interface DestinationResolution {
+  requestedTitle: string;
+
+  requestedSalary: number | null;
+
+  priority: SalaryPriority;
+
+  /** The AI's qualitative reasoning for this resolution, or null if the
+   * assessment call was unavailable — never fabricated after the fact. */
+  explanation: string | null;
+}
+
 export interface Roadmap {
   current: RoadmapEndpoint;
 
   target: RoadmapEndpoint;
+
+  /** Null unless `target` differs from what the user actually requested. */
+  destinationResolution: DestinationResolution | null;
 
   /** Progression between current and target, ending at the target. */
   steps: RoadmapStep[];
@@ -134,6 +182,15 @@ export interface Roadmap {
 
   /** Skills the user already has that carry into the target role. */
   transferableSkills: string[];
+
+  /**
+   * Other careers that could plausibly suit this person, given their real
+   * stated context. Display-only — a suggestion, never a substitute for
+   * `target`. Never auto-selected, never silently replaces the requested
+   * role. Empty when nothing genuinely fits, which is expected, not an
+   * error.
+   */
+  alternativeCareers: AlternativeCareer[];
 
   /**
    * Formal qualifications, licensing, or registration the AI believes the

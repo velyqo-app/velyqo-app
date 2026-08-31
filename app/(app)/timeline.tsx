@@ -8,12 +8,14 @@ import {
   View,
 } from "react-native";
 
+import DestinationDecision from "../../components/DestinationDecision";
 import RoadmapStep from "../../components/RoadmapStep";
 import Card from "../../components/ui/Card";
 import LoadingScreen from "../../components/ui/LoadingScreen";
 import { Colors } from "../../constants/theme";
 import { useRoadmap } from "../../hooks/useRoadmap";
 import {
+  Roadmap,
   RoadmapEndpoint,
   RoadmapJourneyEstimate,
   RoadmapLimitation,
@@ -74,6 +76,12 @@ function JourneyEstimateCard({
         {maxMonths} months estimated
         {partial ? ` (based on ${stepsCounted} of ${stepsTotal} steps)` : ""}
       </Text>
+
+      <Text style={styles.journeyFootnote}>
+        Assumes some steps can overlap with earlier ones — e.g. building a
+        portfolio or networking while still in your current role — rather
+        than every step happening strictly one after another.
+      </Text>
     </Card>
   );
 }
@@ -85,16 +93,33 @@ function EndpointSalary({
   label: string;
   endpoint: RoadmapEndpoint;
 }) {
+  // Prefer the currency derived from the user's own country; the market
+  // band's currency is only a fallback for the rare case that's unset but a
+  // band still somehow exists.
+  const statedCurrency = endpoint.currency ?? endpoint.salary?.currency ?? null;
+
   return (
     <View style={styles.endpointBlock}>
       <Text style={styles.endpointLabel}>{label}</Text>
 
+      {/* The user's own figure is the primary, most prominent line — it must
+          never be displaced by or read as secondary to market data. */}
+      {endpoint.statedSalary !== null ? (
+        <Text style={styles.statedSalary}>
+          {statedCurrency
+            ? formatMoney(statedCurrency, endpoint.statedSalary)
+            : endpoint.statedSalary.toLocaleString()}
+        </Text>
+      ) : (
+        <Text style={styles.notProvided}>Not provided</Text>
+      )}
+
+      <View style={styles.marketDivider} />
+
+      <Text style={styles.marketLabel}>VERIFIED MARKET RANGE</Text>
+
       {endpoint.salary ? (
         <>
-          <Text style={styles.salary}>
-            {formatMoney(endpoint.salary.currency, endpoint.salary.median)}
-          </Text>
-
           <Text style={styles.range}>
             {formatMoney(endpoint.salary.currency, endpoint.salary.low)} –{" "}
             {formatMoney(endpoint.salary.currency, endpoint.salary.high)}
@@ -108,22 +133,182 @@ function EndpointSalary({
         </>
       ) : (
         <Text style={styles.unavailable}>
-          No verified market data for this role yet.
-        </Text>
-      )}
-
-      {/* The user's own figure, kept visually separate from market data. */}
-      {endpoint.statedSalary !== null && (
-        <Text style={styles.stated}>
-          You told us: {endpoint.statedSalary.toLocaleString()}
+          No verified market data available for this role yet.
         </Text>
       )}
     </View>
   );
 }
 
+/**
+ * Renders one complete roadmap. Used twice, unchanged, when the user chose
+ * "show me both pathways" — each destination gets the identical treatment,
+ * neither is visually privileged over the other.
+ */
+function RoadmapView({
+  roadmap,
+  onRetry,
+}: {
+  roadmap: Roadmap;
+  onRetry: () => void;
+}) {
+  return (
+    <>
+      {roadmap.destinationResolution && (
+        <Card>
+          <Text style={styles.resolutionNote}>
+            You asked about{" "}
+            <Text style={styles.resolutionEmphasis}>
+              {roadmap.destinationResolution.requestedTitle}
+            </Text>
+            {roadmap.destinationResolution.requestedSalary
+              ? ` at ${roadmap.destinationResolution.requestedSalary.toLocaleString()}`
+              : ""}
+            . This roadmap targets{" "}
+            <Text style={styles.resolutionEmphasis}>{roadmap.target.title}</Text>{" "}
+            instead — a salary-driven alternative, not the role you
+            originally entered.
+          </Text>
+        </Card>
+      )}
+
+      <Text style={styles.currentRole}>{roadmap.current.title}</Text>
+
+      <Text style={styles.arrow}>↓</Text>
+
+      <Text style={styles.targetRole}>{roadmap.target.title}</Text>
+
+      {roadmap.estimatedJourney ? (
+        <JourneyEstimateCard estimate={roadmap.estimatedJourney} />
+      ) : null}
+
+      {roadmap.summary ? (
+        <Card>
+          <Text style={styles.cardTitle}>Your transition</Text>
+
+          <Text style={styles.summary}>{roadmap.summary}</Text>
+        </Card>
+      ) : null}
+
+      {roadmap.transferableSkills.length > 0 && (
+        <Card>
+          <Text style={styles.cardTitle}>What you already bring</Text>
+
+          {roadmap.transferableSkills.map((skill) => (
+            <Text key={skill} style={styles.skill}>
+              ✓ {skill}
+            </Text>
+          ))}
+        </Card>
+      )}
+
+      {roadmap.nextAction ? (
+        <Card>
+          <Text style={styles.cardTitle}>Recommended next step</Text>
+
+          <Text style={styles.nextAction}>{roadmap.nextAction}</Text>
+        </Card>
+      ) : null}
+
+      <Card>
+        <Text style={styles.cardTitle}>Salary</Text>
+
+        <EndpointSalary label="CURRENT ROLE" endpoint={roadmap.current} />
+
+        <View style={styles.divider} />
+
+        <EndpointSalary label="TARGET ROLE" endpoint={roadmap.target} />
+      </Card>
+
+      <Text style={styles.section}>Career Roadmap</Text>
+
+      {roadmap.steps.length === 0 ? (
+        <Card>
+          <Text style={styles.unavailable}>
+            We can&apos;t map the steps between these two roles yet. Your
+            current and target roles are still shown above.
+          </Text>
+
+          {roadmap.limitations.includes("AI_UNAVAILABLE") && (
+            <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
+              <Text style={styles.retryText}>Try again</Text>
+            </TouchableOpacity>
+          )}
+        </Card>
+      ) : (
+        roadmap.steps.map((step, index) => (
+          <View key={step.id} style={styles.stepContainer}>
+            <RoadmapStep index={index} step={step} />
+
+            {index < roadmap.steps.length - 1 && (
+              <Text style={styles.arrow}>↓</Text>
+            )}
+          </View>
+        ))
+      )}
+
+      {roadmap.alternativeCareers.length > 0 && (
+        <Card>
+          <Text style={styles.cardTitle}>You might also consider</Text>
+
+          <Text style={styles.alternativesCaveat}>
+            Suggestions, not a change to your roadmap above.
+          </Text>
+
+          {roadmap.alternativeCareers.map((career) => (
+            <View key={career.title} style={styles.alternativeItem}>
+              <Text style={styles.alternativeTitle}>{career.title}</Text>
+
+              <Text style={styles.alternativeReason}>
+                {career.whySuitable}
+              </Text>
+            </View>
+          ))}
+        </Card>
+      )}
+
+      {roadmap.regulatoryConsiderations.length > 0 && (
+        <Card>
+          <Text style={styles.cardTitle}>
+            Regulatory considerations (AI-flagged, not verified)
+          </Text>
+
+          {roadmap.regulatoryConsiderations.map((note) => (
+            <Text key={note} style={styles.limitation}>
+              • {note}
+            </Text>
+          ))}
+        </Card>
+      )}
+
+      {roadmap.limitations.length > 0 && (
+        <>
+          <Text style={styles.section}>What we don&apos;t know yet</Text>
+
+          <Card>
+            {roadmap.limitations.map((limitation) => (
+              <Text key={limitation} style={styles.limitation}>
+                • {LIMITATION_TEXT[limitation]}
+              </Text>
+            ))}
+          </Card>
+        </>
+      )}
+    </>
+  );
+}
+
 export default function TimelineScreen() {
-  const { loading, roadmap } = useRoadmap();
+  const {
+    loading,
+    needsDecision,
+    comparison,
+    roadmap,
+    alternateRoadmap,
+    chooseDestination,
+    reconsiderDestination,
+    retryGeneration,
+  } = useRoadmap();
 
   if (loading) {
     return <LoadingScreen message="Building your career roadmap..." />;
@@ -145,7 +330,12 @@ export default function TimelineScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {!roadmap ? (
+        {needsDecision && comparison ? (
+          <DestinationDecision
+            comparison={comparison}
+            onChoose={chooseDestination}
+          />
+        ) : !roadmap ? (
           <Card>
             <Text style={styles.emptyTitle}>No roadmap yet</Text>
 
@@ -156,105 +346,24 @@ export default function TimelineScreen() {
           </Card>
         ) : (
           <>
-            <Text style={styles.currentRole}>{roadmap.current.title}</Text>
-
-            <Text style={styles.arrow}>↓</Text>
-
-            <Text style={styles.targetRole}>{roadmap.target.title}</Text>
-
-            {/* Null whenever no step has a usable time estimate — e.g. a
-                catalogue-only roadmap, which carries no AI-generated
-                durations at all. Never a guessed fallback. */}
-            {roadmap.estimatedJourney ? (
-              <JourneyEstimateCard estimate={roadmap.estimatedJourney} />
-            ) : null}
-
-            {/* Summary and transferable skills only exist on generated
-                roadmaps, so both are rendered conditionally. */}
-            {roadmap.summary ? (
-              <Card>
-                <Text style={styles.cardTitle}>Your transition</Text>
-
-                <Text style={styles.summary}>{roadmap.summary}</Text>
-              </Card>
-            ) : null}
-
-            {roadmap.transferableSkills.length > 0 && (
-              <Card>
-                <Text style={styles.cardTitle}>What you already bring</Text>
-
-                {roadmap.transferableSkills.map((skill) => (
-                  <Text key={skill} style={styles.skill}>
-                    ✓ {skill}
-                  </Text>
-                ))}
-              </Card>
+            {roadmap.destinationResolution && (
+              <TouchableOpacity onPress={reconsiderDestination}>
+                <Text style={styles.reconsiderLink}>Reconsider this choice</Text>
+              </TouchableOpacity>
             )}
 
-            {roadmap.nextAction ? (
-              <Card>
-                <Text style={styles.cardTitle}>Recommended next step</Text>
+            <RoadmapView roadmap={roadmap} onRetry={retryGeneration} />
 
-                <Text style={styles.nextAction}>{roadmap.nextAction}</Text>
-              </Card>
-            ) : null}
-
-            <Card>
-              <Text style={styles.cardTitle}>Salary</Text>
-
-              <EndpointSalary label="CURRENT ROLE" endpoint={roadmap.current} />
-
-              <View style={styles.divider} />
-
-              <EndpointSalary label="TARGET ROLE" endpoint={roadmap.target} />
-            </Card>
-
-            <Text style={styles.section}>Career Roadmap</Text>
-
-            {roadmap.steps.length === 0 ? (
-              <Card>
-                <Text style={styles.unavailable}>
-                  We can&apos;t map the steps between these two roles yet. Your
-                  current and target roles are still shown above.
-                </Text>
-              </Card>
-            ) : (
-              roadmap.steps.map((step, index) => (
-                <View key={step.id} style={styles.stepContainer}>
-                  <RoadmapStep index={index} step={step} />
-
-                  {index < roadmap.steps.length - 1 && (
-                    <Text style={styles.arrow}>↓</Text>
-                  )}
-                </View>
-              ))
-            )}
-
-            {roadmap.regulatoryConsiderations.length > 0 && (
-              <Card>
-                <Text style={styles.cardTitle}>
-                  Regulatory considerations (AI-flagged, not verified)
-                </Text>
-
-                {roadmap.regulatoryConsiderations.map((note) => (
-                  <Text key={note} style={styles.limitation}>
-                    • {note}
-                  </Text>
-                ))}
-              </Card>
-            )}
-
-            {roadmap.limitations.length > 0 && (
+            {alternateRoadmap && (
               <>
-                <Text style={styles.section}>What we don&apos;t know yet</Text>
+                <View style={styles.pathwayDivider} />
 
-                <Card>
-                  {roadmap.limitations.map((limitation) => (
-                    <Text key={limitation} style={styles.limitation}>
-                      • {LIMITATION_TEXT[limitation]}
-                    </Text>
-                  ))}
-                </Card>
+                <Text style={styles.section}>The alternative pathway</Text>
+
+                <RoadmapView
+                  roadmap={alternateRoadmap}
+                  onRetry={retryGeneration}
+                />
               </>
             )}
           </>
@@ -349,6 +458,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
+  journeyFootnote: {
+    color: Colors.subtext,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: "center",
+    marginTop: 10,
+  },
+
   summary: {
     color: Colors.text,
     fontSize: 15,
@@ -373,28 +490,44 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  salary: {
-    color: Colors.success,
+  statedSalary: {
+    color: Colors.text,
     fontSize: 26,
     fontWeight: "800",
   },
 
-  range: {
+  notProvided: {
     color: Colors.subtext,
-    marginTop: 6,
+    fontSize: 16,
+    fontStyle: "italic",
+  },
+
+  marketDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginTop: 16,
+    marginBottom: 12,
+  },
+
+  marketLabel: {
+    color: Colors.subtext,
+    fontSize: 12,
+    letterSpacing: 1,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+
+  range: {
+    color: Colors.success,
+    fontSize: 18,
+    fontWeight: "700",
   },
 
   provenance: {
     color: Colors.subtext,
     fontSize: 12,
     lineHeight: 18,
-    marginTop: 10,
-  },
-
-  stated: {
-    color: Colors.text,
-    fontSize: 14,
-    marginTop: 10,
+    marginTop: 6,
   },
 
   unavailable: {
@@ -428,6 +561,30 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
+  alternativesCaveat: {
+    color: Colors.subtext,
+    fontSize: 12,
+    fontStyle: "italic",
+    marginBottom: 16,
+  },
+
+  alternativeItem: {
+    marginBottom: 16,
+  },
+
+  alternativeTitle: {
+    color: Colors.text,
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+
+  alternativeReason: {
+    color: Colors.subtext,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+
   emptyTitle: {
     color: Colors.text,
     fontSize: 22,
@@ -440,5 +597,46 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 12,
     lineHeight: 24,
+  },
+
+  resolutionNote: {
+    color: Colors.text,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+
+  resolutionEmphasis: {
+    fontWeight: "700",
+  },
+
+  reconsiderLink: {
+    color: Colors.primary,
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+
+  pathwayDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginTop: 30,
+    marginBottom: 10,
+  },
+
+  retryButton: {
+    marginTop: 16,
+    alignSelf: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+
+  retryText: {
+    color: Colors.primary,
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

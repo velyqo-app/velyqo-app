@@ -13,14 +13,39 @@ import {
   getOccupationsByCategory,
   resolveOccupationByTitle,
 } from "./occupationService";
+import { toCurrencyCode } from "./countryService";
+import { rankOf } from "./occupationLevelService";
 import { generateRoadmap } from "./roadmapGenerationService";
 import { SalaryBand, getSalaryBands } from "./salaryService";
 import {
   EducationLevel,
   ExperienceLevel,
+  SalaryPriority,
   StartingSituation,
   TargetTimeframe,
 } from "../types/careerContext";
+
+/**
+ * Set only when the user has already been shown a confirmed salary conflict
+ * (destinationResolutionService) and chosen "salary" or "balance" over their
+ * originally requested role. Redirects buildRoadmap's target for this one
+ * call, while `requestedTitle`/`requestedSalary` are preserved so the
+ * returned Roadmap can honestly show what was actually asked for.
+ *
+ * Never constructed from an invented title — `title`/`occupationId` must
+ * come from either a catalogue occupation or an AI-suggested title that was
+ * itself only offered after a real conflict was confirmed.
+ */
+export interface DestinationOverride {
+  title: string;
+  occupationId: string | null;
+  priority: SalaryPriority;
+  requestedTitle: string;
+  requestedSalary: number | null;
+
+  /** The AI's qualitative reasoning, or null if that call was unavailable. */
+  explanation: string | null;
+}
 
 export interface RoadmapInput {
   currentRole: string;
@@ -47,33 +72,12 @@ export interface RoadmapInput {
   educationLevel: EducationLevel | "";
   skills: string[];
   targetTimeframe: TargetTimeframe | "";
-}
 
-/**
- * Seniority ordering for `occupations.level`.
- *
- * The database has an `experience_levels` table with a `sort_order` column,
- * which would be the natural home for this, but it is empty — so ranking lives
- * here instead. This orders roles that already exist in the catalogue; it never
- * invents a role. Levels absent from this map are treated as unrankable and
- * excluded from the ladder rather than guessed at.
- */
-const LEVEL_RANK: Record<string, number> = {
-  intern: 10,
-  entry: 20,
-  junior: 30,
-  associate: 40,
-  mid: 50,
-  senior: 60,
-  lead: 70,
-  principal: 80,
-  manager: 90,
-  "senior manager": 100,
-  head: 110,
-  director: 120,
-  vp: 130,
-  executive: 140,
-};
+  /** Redirects generation toward a resolved destination — see
+   * DestinationOverride. Absent or null means "target exactly what was
+   * requested," which is the default and by far the common case. */
+  destinationOverride?: DestinationOverride | null;
+}
 
 interface MonthRange {
   min: number;
@@ -153,7 +157,13 @@ function buildJourneyEstimate(
   const sequentialMax = parsed.reduce((sum, range) => sum + range.max, 0);
   const longestStepMin = Math.max(...parsed.map((range) => range.min));
 
-  const lowerBound = longestStepMin;
+  // A floor of just the longest single step let the AI report implausibly
+  // short totals (e.g. "1-2 years" for four sequential-sounding role changes
+  // that individually sum to well over that). Never let overlap reasoning
+  // claim more than half the naive sequential minimum back — a disclosed
+  // heuristic, not verified data, chosen to stop implausible under-estimates
+  // without pretending overlap can't meaningfully shorten a journey at all.
+  const lowerBound = Math.max(longestStepMin, sequentialMin * 0.5);
   const upperBound = sequentialMax;
 
   const aiRange = parseDurationRange(aiEstimatedJourney);
@@ -190,12 +200,20 @@ function buildJourneyEstimate(
   };
 }
 
-function rankOf(level: string | null): number | null {
-  if (!level) {
-    return null;
-  }
-
-  return LEVEL_RANK[level.trim().toLowerCase()] ?? null;
+/**
+ * A row that fails these checks is malformed, not merely low-quality — a
+ * negative, zero, or inverted (low > high) figure is never a real salary and
+ * must never reach the UI as if it were a verified one. Single choke point so
+ * every renderer of RoadmapSalary is protected without repeating the check.
+ */
+function isSaneBand(band: SalaryBand): boolean {
+  return (
+    band.low_salary > 0 &&
+    band.median_salary > 0 &&
+    band.high_salary > 0 &&
+    band.low_salary <= band.median_salary &&
+    band.median_salary <= band.high_salary
+  );
 }
 
 function toRoadmapSalary(band: SalaryBand): RoadmapSalary {
@@ -214,8 +232,11 @@ function toRoadmapSalary(band: SalaryBand): RoadmapSalary {
 /**
  * Verified market salary for one occupation, or null when the database has
  * none. Never falls back to another role's figure.
+ *
+ * Exported so destinationResolutionService can reuse the exact same lookup
+ * (including the isSaneBand guard) rather than a second copy of it.
  */
-async function loadSalary(
+export async function loadSalary(
   occupationId: string | null,
   countryCode: string | null,
 ): Promise<RoadmapSalary | null> {
@@ -234,14 +255,23 @@ async function loadSalary(
     // so prefer the occupation-wide band and fall back to whatever exists.
     const band = data.find((candidate) => candidate.scope === "OCCUPATION") ?? data[0];
 
-    return band ? toRoadmapSalary(band) : null;
+    if (!band || !isSaneBand(band)) {
+      return null;
+    }
+
+    return toRoadmapSalary(band);
   } catch {
     return null;
   }
 }
 
-/** Uses the stored id when we have one, otherwise recovers it from the title. */
-async function resolveEndpoint(
+/**
+ * Uses the stored id when we have one, otherwise recovers it from the title.
+ *
+ * Exported so destinationResolutionService can resolve the target occupation
+ * the same way the roadmap itself does, rather than a second copy of it.
+ */
+export async function resolveEndpoint(
   title: string,
   occupationId: string | null,
 ): Promise<CatalogueOccupation | null> {
@@ -311,9 +341,20 @@ async function buildLadder(
 export async function buildRoadmap(input: RoadmapInput): Promise<Roadmap> {
   const limitations: RoadmapLimitation[] = [];
 
+  const override = input.destinationOverride ?? null;
+
+  // When an override is present, every resolution/ladder/salary/generation
+  // step below targets it instead of the raw request — the same mechanism
+  // that already handles a free-text target, just fed a different
+  // title/id. The original request is preserved in `override` so it can be
+  // recorded in the returned Roadmap's destinationResolution, never lost.
+  const effectiveTargetRole = override?.title ?? input.targetRole;
+  const effectiveTargetOccupationId =
+    override?.occupationId ?? input.targetOccupationId;
+
   const [currentOccupation, targetOccupation] = await Promise.all([
     resolveEndpoint(input.currentRole, input.currentOccupationId),
-    resolveEndpoint(input.targetRole, input.targetOccupationId),
+    resolveEndpoint(effectiveTargetRole, effectiveTargetOccupationId),
   ]);
 
   if (!currentOccupation) {
@@ -374,21 +415,43 @@ export async function buildRoadmap(input: RoadmapInput): Promise<Roadmap> {
     limitations.push("NO_SALARY_DATA");
   }
 
+  // Both endpoints share the user's one country, so this is computed once.
+  const statedCurrency = toCurrencyCode(input.countryCode);
+
   const current: RoadmapEndpoint = {
     title: currentOccupation?.title ?? input.currentRole,
     occupationId: currentOccupation?.id ?? null,
     level: currentOccupation?.level ?? null,
     salary: currentSalary,
     statedSalary: input.currentSalary,
+    currency: statedCurrency,
   };
 
   const target: RoadmapEndpoint = {
-    title: targetOccupation?.title ?? input.targetRole,
+    // Falls back to the resolved (possibly overridden) title, never the raw
+    // request — if the override named a role outside the catalogue, this is
+    // what makes that title actually show up as the target.
+    title: targetOccupation?.title ?? effectiveTargetRole,
     occupationId: targetOccupation?.id ?? null,
     level: targetOccupation?.level ?? null,
     salary: targetSalary,
     statedSalary: input.targetSalary,
+    currency: statedCurrency,
   };
+
+  const destinationNote = override
+    ? `IMPORTANT CONTEXT: this person originally asked about "${override.requestedTitle}"${
+        override.requestedSalary
+          ? ` with a target salary of ${override.requestedSalary}`
+          : ""
+      }. A confirmed salary comparison showed that target may need a more
+senior role, and they chose to ${
+        override.priority === "salary"
+          ? "prioritise reaching their salary target"
+          : "balance salary and time"
+      } — so this roadmap targets "${effectiveTargetRole}" instead of their
+original request.${override.explanation ? ` Context: ${override.explanation}` : ""}`
+    : null;
 
   // The catalogue holds a handful of occupations, so generated steps are the
   // primary source of progression for almost every real transition. The
@@ -406,6 +469,7 @@ export async function buildRoadmap(input: RoadmapInput): Promise<Roadmap> {
     educationLevel: input.educationLevel,
     skills: input.skills,
     targetTimeframe: input.targetTimeframe,
+    destinationNote,
   });
 
   const salaryByTitle = buildSalaryLookup(
@@ -452,9 +516,22 @@ export async function buildRoadmap(input: RoadmapInput): Promise<Roadmap> {
   return {
     current,
     target,
+
+    destinationResolution: override
+      ? {
+          requestedTitle: override.requestedTitle,
+          requestedSalary: override.requestedSalary,
+          priority: override.priority,
+          explanation: override.explanation,
+        }
+      : null,
+
     steps,
     summary: generated?.summary ?? null,
     transferableSkills: generated?.transferableSkills ?? [],
+
+    // Display-only — never touches `target`, never auto-selected.
+    alternativeCareers: generated?.alternativeCareers ?? [],
 
     // AI-asserted, not database-verified — the UI must label it as such.
     regulatoryConsiderations: generated?.regulatoryConsiderations ?? [],

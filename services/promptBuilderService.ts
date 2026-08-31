@@ -34,6 +34,14 @@ export interface RoadmapPromptInput {
   educationLevel: EducationLevel | "";
   skills: string[];
   targetTimeframe: TargetTimeframe | "";
+
+  /**
+   * Present only when `targetRole` here is a resolved destination different
+   * from what the user actually typed — e.g. they chose to prioritise salary
+   * over their originally requested role. Tells the model to acknowledge
+   * that honestly rather than writing as if this were the original ask.
+   */
+  destinationNote: string | null;
 }
 
 /**
@@ -106,6 +114,7 @@ export function buildRoadmapPrompt(input: RoadmapPromptInput): string {
     educationLevel,
     skills,
     targetTimeframe,
+    destinationNote,
   } = input;
 
   const noExperience = impliesNoProfessionalExperience(startingSituation);
@@ -145,7 +154,7 @@ ${
     ? `Verified roles between these two: ${knownLadder.join(", ")}`
     : "We have no verified intermediate roles for this transition."
 }
-
+${destinationNote ? `\n${destinationNote}\n` : ""}
 =========================
 CRITICAL RULE — READ FIRST
 =========================
@@ -177,7 +186,13 @@ RULES
    implied by "${currentRole}".`
        : `Ground these in their stated current role and confirmed skills.`
    }
-5. "summary" must mention both "${currentRole}" and "${targetRole}" by name.
+5. "summary" must mention both "${currentRole}" and "${targetRole}" by name.${
+     destinationNote
+       ? ` It must also briefly and honestly acknowledge why ${targetRole}
+   is the destination here (see the note above) — do not write as though
+   this were the only role ever discussed.`
+       : ""
+   }
 6. NEVER mention salary, pay, compensation, or any monetary figure anywhere in
    your response. Salary is handled elsewhere.
 7. Be specific to this transition. Generic advice that would suit any career
@@ -197,28 +212,55 @@ RULES
     nurses in the UK must be registered with the NMC"). This is your own
     knowledge, not verified data, so state it plainly without exaggerating
     certainty. If there is no such requirement, return an empty array.
-12. "estimatedJourney" must be your own estimate of the TOTAL time from today
+12. The output shape below asks for "steps" before "estimatedJourney" —
+    follow that order. Decide every step's "estimatedTime" first, then base
+    "estimatedJourney" on the durations you actually just assigned, not a
+    separate guess made before the steps exist.
+    "estimatedJourney" must be your own estimate of the TOTAL time from today
     to reaching ${targetRole}, as a duration such as "18-30 months". Do NOT
     simply add up every step's "estimatedTime" — some steps realistically
     overlap (for example, networking or building a portfolio can happen
     alongside a previous step rather than strictly after it finishes).
     Reason about which steps can genuinely run in parallel and let your total
     reflect that, so it is normally shorter than a straight sum of every
-    step's own estimate. It must never be longer than that straight sum.
-13. Reread the CRITICAL RULE above before finalising your response.
+    step's own estimate. It must never be longer than that straight sum, and
+    it must never be dramatically shorter than the single longest step. ${
+      noExperience
+        ? `This person has no current job, so do not assume overlap
+    opportunities that depend on already being employed (e.g. "networking
+    while still in role") — be more conservative about how much these steps
+    can overlap.`
+        : ""
+    }
+13. "alternativeCareers" must list 2-4 OTHER careers — different from
+    ${targetRole} — that could plausibly suit this person, given their
+    current role, confirmed skills, education, and experience above. Each
+    "whySuitable" must reference something specific about THIS person (a
+    stated skill, their current role, their education) — not a generic
+    reason that would apply to anyone. Do not repeat ${targetRole} or a
+    trivial rewording of it. If nothing else genuinely fits, return an empty
+    array rather than padding it with a weak suggestion.
+14. Reread the CRITICAL RULE above before finalising your response.
 
 =========================
 OUTPUT FORMAT
 =========================
 
 Return ONLY a JSON object matching this shape. No markdown, no code fences, no
-commentary before or after.
+commentary before or after. The field order below is deliberate — write
+"steps" before "estimatedJourney" so the total is grounded in real step
+durations rather than guessed before they exist.
 
 {
   "summary": "string",
   "transferableSkills": ["string"],
   "regulatoryConsiderations": ["string"],
-  "estimatedJourney": "string",
+  "alternativeCareers": [
+    {
+      "title": "string",
+      "whySuitable": "string"
+    }
+  ],
   "steps": [
     {
       "title": "string",
@@ -228,7 +270,114 @@ commentary before or after.
       "estimatedTime": "string",
       "rationale": "string"
     }
-  ]
+  ],
+  "estimatedJourney": "string"
+}
+`;
+}
+
+export interface DestinationAssessmentInput {
+  currentRole: string;
+  requestedTargetRole: string;
+  requestedTargetSalary: number;
+  targetTimeframe: TargetTimeframe | "";
+
+  /** Currency + low/high/dataType/confidence — always present, since this is
+   * only ever called after a real conflict has been confirmed against a
+   * verified band. */
+  currency: string;
+  bandLow: number;
+  bandHigh: number;
+  bandDataType: string;
+  bandConfidence: number;
+
+  /** Same-category catalogue occupations ranked above the target, if any —
+   * the model is told to prefer these over its own guesses. */
+  knownAdvancedRoles: string[];
+}
+
+/**
+ * Builds the prompt for the ONE lightweight assessment call made after a
+ * salary conflict has already been confirmed deterministically (see
+ * destinationResolutionService). This call is never asked to decide whether
+ * a conflict exists — only checkSalaryConflict's real database comparison
+ * does that. Its only job is suggesting plausible senior-role titles and a
+ * short honest explanation, never a salary figure of its own.
+ */
+export function buildDestinationAssessmentPrompt(
+  input: DestinationAssessmentInput,
+): string {
+  const {
+    currentRole,
+    requestedTargetRole,
+    requestedTargetSalary,
+    targetTimeframe,
+    currency,
+    bandLow,
+    bandHigh,
+    bandDataType,
+    bandConfidence,
+    knownAdvancedRoles,
+  } = input;
+
+  return `
+You are Velyqo's career pathway planner.
+
+This person's current role is ${currentRole}. They want to reach
+"${requestedTargetRole}" and have told us their target salary is
+${currency} ${requestedTargetSalary}.
+${
+  targetTimeframe
+    ? `They want to get there: ${TARGET_TIMEFRAME_LABELS[targetTimeframe]}.`
+    : ""
+}
+
+=========================
+ALREADY VERIFIED — DO NOT RESTATE THESE NUMBERS
+=========================
+
+The verified market range for ${requestedTargetRole} is ${currency}
+${bandLow}-${bandHigh} (${bandDataType.toLowerCase()} data, ${bandConfidence}%
+confidence). Their requested salary is above the top of this verified range.
+These figures are already shown to the user separately — do not repeat them
+or state any other number.
+
+${
+  knownAdvancedRoles.length > 0
+    ? `We already have these verified, more senior roles in the same field: ${knownAdvancedRoles.join(", ")}. Prefer naming these if they plausibly fit this person's goal; only suggest a different title if none of them do.`
+    : `We have no verified list of more senior roles in this field. Use your own general knowledge of typical career ladders to suggest plausible titles.`
+}
+
+=========================
+RULES
+=========================
+
+1. Return 1-3 candidate role titles that would plausibly command a higher
+   salary than ${requestedTargetRole}, in the same general field.
+2. NEVER state a specific salary figure, range, or number anywhere in your
+   response — not even an estimate or a guess. Every salary figure in this
+   product comes only from verified data, and none is given to you to guess
+   with here.
+3. "explanation" must be 1-2 short, honest sentences explaining that reaching
+   the requested salary may require a more senior role than
+   ${requestedTargetRole}. Do not claim more certainty than the data
+   supports, and do not guarantee any of the candidate titles will meet the
+   target salary.
+4. Do not invent qualifications, regulatory requirements, achievements, or
+   experience for this person — none of that context was given to you here.
+5. Be specific to this field. A generic answer that would suit any career is
+   not acceptable.
+
+=========================
+OUTPUT FORMAT
+=========================
+
+Return ONLY a JSON object matching this shape. No markdown, no code fences,
+no commentary before or after.
+
+{
+  "candidateTitles": ["string"],
+  "explanation": "string"
 }
 `;
 }

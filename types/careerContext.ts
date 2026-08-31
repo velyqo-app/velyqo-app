@@ -85,3 +85,20 @@ export function impliesNoProfessionalExperience(
 ): boolean {
   return situation === "student" || situation === "no_experience";
 }
+
+/**
+ * What the user chose when a confirmed salary conflict was shown to them.
+ *
+ * "role" means the requested target role is kept unchanged — the roadmap
+ * still targets exactly what the user asked for. Only "salary"/"balance"
+ * ever resolve to a different destination, and "both" generates both
+ * destinations rather than picking one.
+ */
+export type SalaryPriority = "role" | "salary" | "balance" | "both";
+
+export const SALARY_PRIORITY_LABELS: Record<SalaryPriority, string> = {
+  role: "Reach my requested role sooner",
+  salary: "Prioritise my salary target",
+  balance: "Balance salary and time",
+  both: "Show me both pathways",
+};
