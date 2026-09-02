@@ -301,6 +301,8 @@ function RoadmapView({
 export default function TimelineScreen() {
   const {
     loading,
+    profileError,
+    retryProfile,
     needsDecision,
     comparison,
     roadmap,
@@ -330,7 +332,19 @@ export default function TimelineScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {needsDecision && comparison ? (
+        {profileError ? (
+          <Card>
+            <Text style={styles.emptyTitle}>
+              We couldn&apos;t load your profile
+            </Text>
+
+            <Text style={styles.emptyText}>Please try again.</Text>
+
+            <TouchableOpacity style={styles.retryButton} onPress={retryProfile}>
+              <Text style={styles.retryText}>Retry</Text>
+            </TouchableOpacity>
+          </Card>
+        ) : needsDecision && comparison ? (
           <DestinationDecision
             comparison={comparison}
             onChoose={chooseDestination}

@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import CareerReadinessCard from "../../components/dashboard-v2/CareerReadinessCard";
 import DailyBriefCard from "../../components/dashboard-v2/DailyBriefCard";
@@ -7,14 +7,19 @@ import MissionCard from "../../components/dashboard-v2/MissionCard";
 import QuickActions from "../../components/dashboard-v2/QuickActions";
 import SalaryGrowthCard from "../../components/dashboard-v2/SalaryGrowthCard";
 
+import Button from "../../components/ui/Button";
+import Card from "../../components/ui/Card";
 import LoadingScreen from "../../components/ui/LoadingScreen";
 
 import MomentumCard from "../../components/dashboard-v2/MomentumCard";
+import { Colors } from "../../constants/theme";
 import { useDashboard } from "../../hooks/useDashboard";
 
 export default function DashboardScreen() {
   const {
     loading,
+    error,
+    retry,
     userData,
     progress,
     momentum,
@@ -26,6 +31,20 @@ export default function DashboardScreen() {
 
   if (loading) {
     return <LoadingScreen message="Preparing your Career Brief..." />;
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Card>
+          <Text style={styles.errorText}>
+            We couldn&apos;t load your profile. Please try again.
+          </Text>
+
+          <Button title="Retry" onPress={retry} />
+        </Card>
+      </View>
+    );
   }
 
   return (
@@ -79,5 +98,19 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 40,
+  },
+
+  errorContainer: {
+    flex: 1,
+    backgroundColor: "#0B1120",
+    justifyContent: "center",
+    padding: 20,
+  },
+
+  errorText: {
+    color: Colors.text,
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 20,
   },
 });

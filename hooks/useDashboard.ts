@@ -11,7 +11,12 @@ import { generateCareerBrief } from "../services/careerIntelligenceService";
 import { getRecommendation } from "../services/recommendationService";
 
 export function useDashboard() {
-  const { loading: profileLoading, userData } = useProfile();
+  const {
+    loading: profileLoading,
+    error: profileError,
+    userData,
+    reloadProfile,
+  } = useProfile();
 
   const { loading: progressLoading, progress } = useProgress();
 
@@ -55,6 +60,9 @@ export function useDashboard() {
 
   return {
     loading: profileLoading || progressLoading,
+
+    error: profileError,
+    retry: reloadProfile,
 
     userData,
 

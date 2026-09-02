@@ -176,7 +176,12 @@ export interface DestinationComparison {
  * already does.
  */
 export function useRoadmap() {
-  const { loading: profileLoading, userData } = useProfile();
+  const {
+    loading: profileLoading,
+    error: profileError,
+    userData,
+    reloadProfile,
+  } = useProfile();
 
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
 
@@ -213,6 +218,19 @@ export function useRoadmap() {
 
   useEffect(() => {
     if (profileLoading) {
+      return;
+    }
+
+    // A profile that failed to load is not the same as "no target role" —
+    // there is nothing reliable to build a roadmap from either way, but the
+    // two must be shown distinctly rather than both falling into the same
+    // empty state.
+    if (profileError) {
+      setRoadmap(null);
+      setAlternateRoadmap(null);
+      setComparison(null);
+      setNeedsDecision(false);
+      setLoading(false);
       return;
     }
 
@@ -402,6 +420,7 @@ export function useRoadmap() {
     };
   }, [
     profileLoading,
+    profileError,
     currentRole,
     currentOccupationId,
     currentSalary,
@@ -521,6 +540,8 @@ export function useRoadmap() {
 
   return {
     loading: profileLoading || loading,
+    profileError,
+    retryProfile: reloadProfile,
     needsDecision,
     comparison,
     roadmap,

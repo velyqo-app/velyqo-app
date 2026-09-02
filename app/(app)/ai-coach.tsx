@@ -36,7 +36,7 @@ export default function AICoachScreen() {
   // Fetches independently rather than relying on an ancestor screen (e.g. the
   // dashboard) having already populated UserContext — otherwise a direct/hard
   // reload onto this screen renders the welcome message with blank fields.
-  const { userData } = useProfile();
+  const { userData, error, reloadProfile } = useProfile();
 
   const { mission } = useLocalSearchParams<{
     mission?: string;
@@ -50,7 +50,12 @@ ${mission}
 I'll help you complete today's mission.
 
 Ask me anything about this topic and we'll work through it together.`
-    : `Hi ${userData.name || "there"} 👋
+    : error
+      ? `Hi there 👋
+
+I couldn't load your profile just now, so I don't have your career details
+handy. You can still ask me anything, or retry below.`
+      : `Hi ${userData.name || "there"} 👋
 
 I'm your Velyqo AI Career Coach.
 
@@ -110,6 +115,12 @@ How can I help you today?`;
       >
         <ChatBubble message={welcomeMessage} isUser={false} />
 
+        {error && (
+          <View style={styles.retryContainer}>
+            <Button title="Retry" onPress={reloadProfile} />
+          </View>
+        )}
+
         {messages.map((msg, index) => (
           <ChatBubble key={index} message={msg.text} isUser={msg.isUser} />
         ))}
@@ -164,5 +175,9 @@ const styles = StyleSheet.create({
   chatContent: {
     padding: 16,
     paddingBottom: 30,
+  },
+
+  retryContainer: {
+    marginBottom: 16,
   },
 });
