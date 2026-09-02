@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useContext, useState } from "react";
+import { useState } from "react";
 import {
   SafeAreaView,
   ScrollView,
@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 
-import { UserContext } from "../../context/UserContext";
+import { useProfile } from "../../hooks/useProfile";
 
 import { getAIContext } from "../../services/aiContextService";
 
@@ -27,8 +27,16 @@ type Message = {
   isUser: boolean;
 };
 
+/** "a Nurse", "an Engineer" — picks the article from the role's first letter. */
+function article(role: string): string {
+  return /^[aeiou]/i.test(role) ? "an" : "a";
+}
+
 export default function AICoachScreen() {
-  const { userData } = useContext(UserContext);
+  // Fetches independently rather than relying on an ancestor screen (e.g. the
+  // dashboard) having already populated UserContext — otherwise a direct/hard
+  // reload onto this screen renders the welcome message with blank fields.
+  const { userData } = useProfile();
 
   const { mission } = useLocalSearchParams<{
     mission?: string;
@@ -46,17 +54,12 @@ Ask me anything about this topic and we'll work through it together.`
 
 I'm your Velyqo AI Career Coach.
 
-I know you're currently a ${userData.currentRole}
-and you're aiming to become a ${userData.targetRole}.
+I know you're currently ${article(userData.currentRole)} ${userData.currentRole}
+and you're aiming to become ${article(userData.targetRole)} ${userData.targetRole}.
 
 How can I help you today?`;
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      text: welcomeMessage,
-      isUser: false,
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
 
   const [loading, setLoading] = useState(false);
 
@@ -105,6 +108,8 @@ How can I help you today?`;
         style={styles.chat}
         contentContainerStyle={styles.chatContent}
       >
+        <ChatBubble message={welcomeMessage} isUser={false} />
+
         {messages.map((msg, index) => (
           <ChatBubble key={index} message={msg.text} isUser={msg.isUser} />
         ))}
