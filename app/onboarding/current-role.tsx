@@ -46,6 +46,20 @@ export default function CurrentRoleScreen() {
     setQuery(occupation.title);
   };
 
+  // A prior selection's id must never survive a hand edit — otherwise
+  // handleContinue's "already resolved" branch below keeps the old role
+  // while the field shows whatever was just typed over it.
+  const handleQueryChange = (text: string) => {
+    setQuery(text);
+
+    if (userData.currentOccupationId) {
+      setUserData((prev) => ({
+        ...prev,
+        currentOccupationId: null,
+      }));
+    }
+  };
+
   const handleContinue = () => {
     const typed = query.trim();
 
@@ -81,7 +95,7 @@ export default function CurrentRoleScreen() {
         value={query}
         results={results}
         loading={loading}
-        onChangeText={setQuery}
+        onChangeText={handleQueryChange}
         onSelect={handleSelect}
       />
 
