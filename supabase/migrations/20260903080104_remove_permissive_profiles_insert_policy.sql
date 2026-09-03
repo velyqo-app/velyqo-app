@@ -1,0 +1,13 @@
+-- Removes the unrestricted "Allow inserts" policy on public.profiles.
+--
+-- Postgres OR's multiple PERMISSIVE policies for the same command together,
+-- so this policy's unconditional `WITH CHECK (true)` silently neutralized
+-- the properly-scoped "Users can create their own profile" policy
+-- (`WITH CHECK (auth.uid() = user_id)`), letting any caller -- including an
+-- unauthenticated one -- insert a profiles row with an arbitrary user_id.
+--
+-- The legitimate case (a newly authenticated user creating their own
+-- profile during onboarding) remains fully covered by the policy below,
+-- which is left untouched:
+--   "Users can create their own profile" WITH CHECK (auth.uid() = user_id)
+drop policy if exists "Allow inserts" on public.profiles;
