@@ -23,8 +23,8 @@ export default function DashboardScreen() {
     userData,
     progress,
     momentum,
-    targetSalary,
-    targetSalarySource,
+    statedTargetSalary,
+    targetSalaryBand,
     recommendation,
     careerBrief,
   } = useDashboard();
@@ -80,8 +80,8 @@ export default function DashboardScreen() {
 
       <SalaryGrowthCard
         currentSalary={userData.currentSalary}
-        targetSalary={targetSalary}
-        targetSalarySource={targetSalarySource}
+        statedTargetSalary={statedTargetSalary}
+        targetSalaryBand={targetSalaryBand}
       />
 
       <QuickActions />

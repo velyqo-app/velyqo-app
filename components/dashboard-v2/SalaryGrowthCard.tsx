@@ -1,24 +1,30 @@
 import { StyleSheet, Text, View } from "react-native";
 
 import { Colors } from "../../constants/theme";
+import { RoadmapSalary } from "../../types/roadmap";
 import Card from "../ui/Card";
 
 interface Props {
   currentSalary: string;
-  /** Null when there is no reliable figure — never substitute a zero. */
-  targetSalary: number | null;
-  /** Where targetSalary came from, so the user can judge how much to trust it. */
-  targetSalarySource: "stated" | "market" | null;
+  /** The user's own stated target figure, or null — never blended with
+   * market data into a single number. */
+  statedTargetSalary: number | null;
+  /** Verified market data for the target role, or null when unavailable. */
+  targetSalaryBand: RoadmapSalary | null;
+}
+
+function formatMoney(currency: string, amount: number) {
+  return `${currency} ${amount.toLocaleString()}`;
 }
 
 export default function SalaryGrowthCard({
   currentSalary,
-  targetSalary,
-  targetSalarySource,
+  statedTargetSalary,
+  targetSalaryBand,
 }: Props) {
   const current = Number(currentSalary) || null;
 
-  if (targetSalary === null) {
+  if (statedTargetSalary === null && targetSalaryBand === null) {
     return (
       <Card>
         <Text style={styles.title}>💰 Salary Growth</Text>
@@ -31,7 +37,10 @@ export default function SalaryGrowthCard({
     );
   }
 
-  const increase = current === null ? null : targetSalary - current;
+  const increase =
+    current !== null && statedTargetSalary !== null
+      ? statedTargetSalary - current
+      : null;
 
   return (
     <Card>
@@ -50,7 +59,12 @@ export default function SalaryGrowthCard({
 
         <View style={styles.column}>
           <Text style={styles.label}>Target</Text>
-          <Text style={styles.target}>£{targetSalary.toLocaleString()}</Text>
+
+          <Text style={styles.target}>
+            {statedTargetSalary === null
+              ? "Not set"
+              : `£${statedTargetSalary.toLocaleString()}`}
+          </Text>
         </View>
       </View>
 
@@ -66,9 +80,26 @@ export default function SalaryGrowthCard({
         </View>
       )}
 
-      {targetSalarySource === "market" && (
-        <Text style={styles.source}>
-          Target based on an indicative UK market average, not your own figure.
+      <View style={styles.marketDivider} />
+
+      <Text style={styles.marketLabel}>VERIFIED MARKET RANGE</Text>
+
+      {targetSalaryBand ? (
+        <>
+          <Text style={styles.range}>
+            {formatMoney(targetSalaryBand.currency, targetSalaryBand.low)} –{" "}
+            {formatMoney(targetSalaryBand.currency, targetSalaryBand.high)}
+          </Text>
+
+          <Text style={styles.provenance}>
+            {targetSalaryBand.dataType.toLowerCase()} data
+            {targetSalaryBand.source ? ` · ${targetSalaryBand.source}` : ""} ·{" "}
+            {targetSalaryBand.confidence}% confidence
+          </Text>
+        </>
+      ) : (
+        <Text style={styles.unavailable}>
+          No verified market data available for this role yet.
         </Text>
       )}
     </Card>
@@ -145,11 +176,31 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
-  source: {
+  marketDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginTop: 24,
+    marginBottom: 16,
+  },
+
+  marketLabel: {
+    color: Colors.subtext,
+    fontSize: 12,
+    letterSpacing: 1,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+
+  range: {
+    color: Colors.success,
+    fontSize: 18,
+    fontWeight: "700",
+  },
+
+  provenance: {
     color: Colors.subtext,
     fontSize: 12,
     lineHeight: 18,
-    marginTop: 16,
-    textAlign: "center",
+    marginTop: 6,
   },
 });

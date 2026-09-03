@@ -1,14 +1,16 @@
-import { useMemo } from "react";
-
-import { getIndicativeSalary } from "../data/salaries";
+import { useEffect, useMemo, useState } from "react";
 
 import { useProfile } from "./useProfile";
 import { useProgress } from "./useProgress";
 
+import { toCountryCode } from "../services/countryService";
 import { getMomentum } from "../services/momentumService";
+import { loadSalary, resolveEndpoint } from "../services/roadmapService";
 
 import { generateCareerBrief } from "../services/careerIntelligenceService";
 import { getRecommendation } from "../services/recommendationService";
+
+import { RoadmapSalary } from "../types/roadmap";
 
 export function useDashboard() {
   const {
@@ -20,23 +22,52 @@ export function useDashboard() {
 
   const { loading: progressLoading, progress } = useProgress();
 
+  const { targetRole, targetOccupationId, country } = userData;
+
+  // Verified market data for the target role, or null — same authoritative
+  // lookup Career Timeline uses (resolveEndpoint + loadSalary against
+  // occupation_salary_bands), never the retired seeded table in
+  // data/salaries.ts, so the two screens can never disagree on this figure.
+  const [targetSalaryBand, setTargetSalaryBand] =
+    useState<RoadmapSalary | null>(null);
+
+  const [salaryLoading, setSalaryLoading] = useState(true);
+
+  useEffect(() => {
+    if (profileLoading) {
+      return;
+    }
+
+    // A failed profile load or an unset target role has nothing to resolve —
+    // skip the lookup rather than firing it against stale/blank data.
+    if (profileError || !targetRole.trim()) {
+      setTargetSalaryBand(null);
+      setSalaryLoading(false);
+      return;
+    }
+
+    let active = true;
+
+    setSalaryLoading(true);
+
+    const loadTargetSalary = async () => {
+      const occupation = await resolveEndpoint(targetRole, targetOccupationId);
+      const band = await loadSalary(occupation?.id ?? null, toCountryCode(country));
+
+      if (active) {
+        setTargetSalaryBand(band);
+        setSalaryLoading(false);
+      }
+    };
+
+    loadTargetSalary();
+
+    return () => {
+      active = false;
+    };
+  }, [profileLoading, profileError, targetRole, targetOccupationId, country]);
+
   const dashboard = useMemo(() => {
-    // Null whenever we have no reliable figure for this role and country.
-    const roleInfo = getIndicativeSalary(userData.targetRole, userData.country);
-
-    // The user's own stated target is real data and always wins. The seeded
-    // market average is only a fallback, and if neither exists the card must
-    // render an unavailable state rather than a zero.
-    const statedTargetSalary = Number(userData.targetSalary) || null;
-
-    const targetSalary = statedTargetSalary ?? roleInfo?.average ?? null;
-
-    const targetSalarySource = statedTargetSalary
-      ? ("stated" as const)
-      : roleInfo
-        ? ("market" as const)
-        : null;
-
     const recommendation = getRecommendation(userData.goal);
 
     const careerBrief = generateCareerBrief(userData.targetRole);
@@ -44,9 +75,6 @@ export function useDashboard() {
     const momentum = getMomentum(progress.current_streak);
 
     return {
-      roleInfo,
-      targetSalary,
-      targetSalarySource,
       recommendation,
       momentum,
 
@@ -58,8 +86,19 @@ export function useDashboard() {
     };
   }, [userData, progress]);
 
+  // The user's own stated figure is real data and always wins over market
+  // data — never blended into a single number, so the two are never
+  // presented as though they're the same kind of information.
+  const statedTargetSalary = Number(userData.targetSalary) || null;
+
+  const targetSalarySource = statedTargetSalary
+    ? ("stated" as const)
+    : targetSalaryBand
+      ? ("verified" as const)
+      : null;
+
   return {
-    loading: profileLoading || progressLoading,
+    loading: profileLoading || progressLoading || salaryLoading,
 
     error: profileError,
     retry: reloadProfile,
@@ -67,6 +106,10 @@ export function useDashboard() {
     userData,
 
     progress,
+
+    statedTargetSalary,
+    targetSalaryBand,
+    targetSalarySource,
 
     ...dashboard,
   };

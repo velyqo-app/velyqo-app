@@ -1,6 +1,5 @@
 import { ScrollView, StyleSheet } from "react-native";
 
-import { getIndicativeSalary } from "../../data/salaries";
 import { useProfile } from "../../hooks/useProfile";
 
 import HeroCard from "../../components/dashboard-v2/HeroCard";
@@ -12,11 +11,7 @@ export default function DashboardV2() {
 
   if (loading) return null;
 
-  const roleInfo = getIndicativeSalary(userData.targetRole, userData.country);
-
   const statedTargetSalary = Number(userData.targetSalary) || null;
-
-  const targetSalary = statedTargetSalary ?? roleInfo?.average ?? null;
 
   return (
     <ScrollView
@@ -34,10 +29,8 @@ export default function DashboardV2() {
 
       <SalaryGrowthCard
         currentSalary={userData.currentSalary}
-        targetSalary={targetSalary}
-        targetSalarySource={
-          statedTargetSalary ? "stated" : roleInfo ? "market" : null
-        }
+        statedTargetSalary={statedTargetSalary}
+        targetSalaryBand={null}
       />
     </ScrollView>
   );
