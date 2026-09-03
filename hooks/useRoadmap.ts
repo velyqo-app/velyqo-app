@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { UserData } from "../context/UserContext";
 import { toCountryCode } from "../services/countryService";
@@ -285,6 +285,11 @@ export function useRoadmap() {
   const [generationFailed, setGenerationFailed] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
 
+  // Guards chooseDestination against a second choice made while the first is
+  // still processing. A ref rather than state — see chooseDestination.
+  const choosingRef = useRef(false);
+  const [choosingDestination, setChoosingDestination] = useState(false);
+
   const {
     currentRole,
     currentOccupationId,
@@ -523,80 +528,101 @@ export function useRoadmap() {
   ]);
 
   const chooseDestination = async (priority: SalaryPriority) => {
-    if (!comparison) {
+    // A ref, not state — it must block a second call made in the same
+    // event-loop tick (e.g. two rapid taps on different options before the
+    // first render commits), which state alone cannot do since state only
+    // takes effect on the next render. Set before the first await so there
+    // is no gap where a second call could still slip through.
+    if (!comparison || choosingRef.current) {
       return;
     }
 
-    // No candidate from either the catalogue or the AI — there is nothing
-    // concrete to resolve to, so every option degrades to keeping the
-    // requested role rather than inventing a destination.
-    const chosen = comparison.candidates[0] ?? null;
+    choosingRef.current = true;
+    setChoosingDestination(true);
 
-    const decision: StoredDecision = {
-      priority,
-      resolvedTitle: chosen && priority !== "role" ? chosen.title : null,
-      resolvedOccupationId:
-        chosen && priority !== "role" ? chosen.occupationId : null,
-      explanation: comparison.explanation,
-    };
+    try {
+      // No candidate from either the catalogue or the AI — there is nothing
+      // concrete to resolve to, so every option degrades to keeping the
+      // requested role rather than inventing a destination.
+      const chosen = comparison.candidates[0] ?? null;
 
-    const dKey = decisionCacheKey(
-      comparison.requestedTitle,
-      comparison.requestedOccupationId,
-      comparison.requestedSalary,
-      toCountryCode(country),
-    );
+      const decision: StoredDecision = {
+        priority,
+        resolvedTitle: chosen && priority !== "role" ? chosen.title : null,
+        resolvedOccupationId:
+          chosen && priority !== "role" ? chosen.occupationId : null,
+        explanation: comparison.explanation,
+      };
 
-    await writeJson(dKey, decision);
-
-    setNeedsDecision(false);
-    setLoading(true);
-
-    const numericTargetSalary = Number(targetSalary) || null;
-
-    const baseInput: Omit<RoadmapInput, "destinationOverride"> = {
-      currentRole,
-      currentOccupationId,
-      currentSalary: Number(currentSalary) || null,
-      targetRole,
-      targetOccupationId,
-      targetSalary: numericTargetSalary,
-      countryCode: toCountryCode(country),
-      country: country || null,
-      purpose: goal || null,
-      startingSituation,
-      experienceLevel,
-      educationLevel,
-      skills,
-      targetTimeframe,
-    };
-
-    const override = buildOverride(decision, baseInput);
-
-    if (decision.priority === "both") {
-      const [primary, alternate] = await Promise.all([
-        loadOrBuildRoadmap({ ...baseInput, destinationOverride: null }),
-        loadOrBuildRoadmap({ ...baseInput, destinationOverride: override }),
-      ]);
-
-      setRoadmap(primary);
-      setAlternateRoadmap(alternate);
-      setGenerationFailed(
-        primary.steps.length === 0 && alternate.steps.length === 0,
+      const dKey = decisionCacheKey(
+        comparison.requestedTitle,
+        comparison.requestedOccupationId,
+        comparison.requestedSalary,
+        toCountryCode(country),
       );
+
+      await writeJson(dKey, decision);
+
+      setNeedsDecision(false);
+      setLoading(true);
+
+      const numericTargetSalary = Number(targetSalary) || null;
+
+      const baseInput: Omit<RoadmapInput, "destinationOverride"> = {
+        currentRole,
+        currentOccupationId,
+        currentSalary: Number(currentSalary) || null,
+        targetRole,
+        targetOccupationId,
+        targetSalary: numericTargetSalary,
+        countryCode: toCountryCode(country),
+        country: country || null,
+        purpose: goal || null,
+        startingSituation,
+        experienceLevel,
+        educationLevel,
+        skills,
+        targetTimeframe,
+      };
+
+      const override = buildOverride(decision, baseInput);
+
+      if (decision.priority === "both") {
+        const [primary, alternate] = await Promise.all([
+          loadOrBuildRoadmap({ ...baseInput, destinationOverride: null }),
+          loadOrBuildRoadmap({ ...baseInput, destinationOverride: override }),
+        ]);
+
+        setRoadmap(primary);
+        setAlternateRoadmap(alternate);
+        setGenerationFailed(
+          primary.steps.length === 0 && alternate.steps.length === 0,
+        );
+        setLoading(false);
+        return;
+      }
+
+      const result = await loadOrBuildRoadmap({
+        ...baseInput,
+        destinationOverride: override,
+      });
+
+      setRoadmap(result);
+      setAlternateRoadmap(null);
+      setGenerationFailed(result.steps.length === 0);
       setLoading(false);
-      return;
+    } catch (error) {
+      // Every other generation path degrades internally rather than
+      // throwing; this is the backstop for a genuine transport/exception
+      // failure so the screen never gets stuck loading indefinitely.
+      console.warn("chooseDestination failed:", error);
+
+      setGenerationFailed(true);
+      setLoading(false);
+    } finally {
+      choosingRef.current = false;
+      setChoosingDestination(false);
     }
-
-    const result = await loadOrBuildRoadmap({
-      ...baseInput,
-      destinationOverride: override,
-    });
-
-    setRoadmap(result);
-    setAlternateRoadmap(null);
-    setGenerationFailed(result.steps.length === 0);
-    setLoading(false);
   };
 
   /** Clears a stored decision so checkSalaryConflict runs again from
@@ -633,6 +659,7 @@ export function useRoadmap() {
     alternateRoadmap,
     generationFailed,
     chooseDestination,
+    choosingDestination,
     reconsiderDestination,
     retryGeneration,
   };

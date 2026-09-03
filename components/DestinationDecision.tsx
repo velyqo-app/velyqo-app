@@ -1,4 +1,10 @@
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 import { Colors } from "../constants/theme";
 import { SALARY_PRIORITY_LABELS, SalaryPriority } from "../types/careerContext";
@@ -8,6 +14,11 @@ import Card from "./ui/Card";
 interface Props {
   comparison: DestinationComparison;
   onChoose: (priority: SalaryPriority) => void;
+
+  /** True while a choice is being processed — disables every option so a
+   * second tap (the same one, or a different one) can't start a second,
+   * competing operation before the first finishes. */
+  submitting: boolean;
 }
 
 const OPTIONS: SalaryPriority[] = ["role", "salary", "balance", "both"];
@@ -24,7 +35,11 @@ function formatMoney(currency: string, amount: number) {
  * directly from that verified band; nothing is computed or guessed by this
  * component.
  */
-export default function DestinationDecision({ comparison, onChoose }: Props) {
+export default function DestinationDecision({
+  comparison,
+  onChoose,
+  submitting,
+}: Props) {
   const { requestedTitle, requestedSalary, band, candidates, explanation } =
     comparison;
 
@@ -77,11 +92,23 @@ export default function DestinationDecision({ comparison, onChoose }: Props) {
 
       <Text style={styles.question}>Which would you prefer?</Text>
 
+      {submitting && (
+        <View style={styles.submittingRow}>
+          <ActivityIndicator size="small" color={Colors.primary} />
+          <Text style={styles.submittingText}>Processing your choice...</Text>
+        </View>
+      )}
+
       {OPTIONS.map((option) => (
         <TouchableOpacity
           key={option}
-          style={styles.option}
-          onPress={() => onChoose(option)}
+          style={[styles.option, submitting && styles.optionDisabled]}
+          disabled={submitting}
+          onPress={() => {
+            if (!submitting) {
+              onChoose(option);
+            }
+          }}
         >
           <Text style={styles.optionText}>
             {SALARY_PRIORITY_LABELS[option]}
@@ -182,9 +209,26 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
 
+  optionDisabled: {
+    opacity: 0.5,
+  },
+
   optionText: {
     color: Colors.text,
     fontSize: 16,
     fontWeight: "600",
+  },
+
+  submittingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+
+  submittingText: {
+    color: Colors.subtext,
+    fontSize: 14,
+    marginLeft: 10,
   },
 });

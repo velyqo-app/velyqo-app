@@ -308,6 +308,7 @@ export default function TimelineScreen() {
     roadmap,
     alternateRoadmap,
     chooseDestination,
+    choosingDestination,
     reconsiderDestination,
     retryGeneration,
   } = useRoadmap();
@@ -348,6 +349,7 @@ export default function TimelineScreen() {
           <DestinationDecision
             comparison={comparison}
             onChoose={chooseDestination}
+            submitting={choosingDestination}
           />
         ) : !roadmap ? (
           <Card>
