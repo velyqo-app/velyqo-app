@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 
+import { UserData } from "../context/UserContext";
 import { toCountryCode } from "../services/countryService";
 import { assessDestination } from "../services/destinationAssessmentService";
 import { checkSalaryConflict } from "../services/destinationResolutionService";
@@ -145,6 +146,90 @@ function buildOverride(
     requestedSalary: baseInput.targetSalary,
     explanation: decision.explanation,
   };
+}
+
+/**
+ * Read-only peek at an already-cached roadmap for this profile, or null when
+ * none exists yet. Never builds or generates one — Career Timeline remains
+ * the only place a roadmap is actually produced. Used by Today's Mission so
+ * it can reflect a real roadmap step without ever triggering AI generation
+ * itself.
+ *
+ * Reuses the exact cache-key logic `useRoadmap` itself uses, rather than a
+ * second copy of it. If the user resolved a salary conflict, the roadmap
+ * toward their resolved destination is preferred (it's the one they're
+ * actually looking at in Timeline); otherwise the roadmap toward their
+ * plain requested role is used.
+ */
+export async function findCachedRoadmap(
+  userData: UserData,
+): Promise<Roadmap | null> {
+  const {
+    currentRole,
+    currentOccupationId,
+    currentSalary,
+    targetRole,
+    targetOccupationId,
+    targetSalary,
+    country,
+    goal,
+    startingSituation,
+    experienceLevel,
+    educationLevel,
+    skills,
+    targetTimeframe,
+  } = userData;
+
+  if (!targetRole.trim()) {
+    return null;
+  }
+
+  const countryCode = toCountryCode(country);
+  const numericTargetSalary = Number(targetSalary) || null;
+
+  const baseInput: Omit<RoadmapInput, "destinationOverride"> = {
+    currentRole,
+    currentOccupationId,
+    currentSalary: Number(currentSalary) || null,
+
+    targetRole,
+    targetOccupationId,
+    targetSalary: numericTargetSalary,
+
+    countryCode,
+    country: country || null,
+    purpose: goal || null,
+
+    startingSituation,
+    experienceLevel,
+    educationLevel,
+    skills,
+    targetTimeframe,
+  };
+
+  const decision = await readJson<StoredDecision>(
+    decisionCacheKey(targetRole, targetOccupationId, numericTargetSalary, countryCode),
+  );
+
+  const override = decision ? buildOverride(decision, baseInput) : null;
+
+  if (override) {
+    const overrideRoadmap = await readJson<Roadmap>(
+      roadmapCacheKey({ ...baseInput, destinationOverride: override }),
+    );
+
+    if (overrideRoadmap && overrideRoadmap.steps.length > 0) {
+      return overrideRoadmap;
+    }
+  }
+
+  const primaryRoadmap = await readJson<Roadmap>(
+    roadmapCacheKey({ ...baseInput, destinationOverride: null }),
+  );
+
+  return primaryRoadmap && primaryRoadmap.steps.length > 0
+    ? primaryRoadmap
+    : null;
 }
 
 export interface DestinationComparison {
