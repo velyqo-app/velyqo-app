@@ -692,5 +692,10 @@ export function useRoadmap() {
     choosingDestination,
     reconsiderDestination,
     retryGeneration,
+
+    // The user's own stated preference — display-only, so the UI can show
+    // it distinctly from the roadmap's estimated journey rather than
+    // implying either is a guarantee of the other.
+    targetTimeframe,
   };
 }

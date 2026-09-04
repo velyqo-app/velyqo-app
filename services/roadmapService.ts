@@ -192,9 +192,16 @@ function buildJourneyEstimate(
     maxMonths = sequentialMax;
   }
 
+  // A defensive floor, not a fabricated duration: a step reporting "0
+  // months" (or every step doing so) must never surface as a 0-month — or
+  // negative, were rounding ever to produce one — journey on screen. 1 is
+  // the smallest unit this estimate is ever expressed in.
+  const roundedMin = Math.max(1, Math.round(minMonths));
+  const roundedMax = Math.max(roundedMin, Math.round(maxMonths));
+
   return {
-    minMonths: Math.round(minMonths),
-    maxMonths: Math.round(maxMonths),
+    minMonths: roundedMin,
+    maxMonths: roundedMax,
     stepsCounted: parsed.length,
     stepsTotal: steps.length,
   };

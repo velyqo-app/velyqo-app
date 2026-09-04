@@ -14,6 +14,7 @@ import Card from "../../components/ui/Card";
 import LoadingScreen from "../../components/ui/LoadingScreen";
 import { Colors } from "../../constants/theme";
 import { useRoadmap } from "../../hooks/useRoadmap";
+import { TARGET_TIMEFRAME_LABELS } from "../../types/careerContext";
 import {
   Roadmap,
   RoadmapEndpoint,
@@ -41,24 +42,75 @@ function formatMoney(currency: string, amount: number) {
   return `${currency} ${amount.toLocaleString()}`;
 }
 
-/** "24-36 months" -> "2-3 years"; leaves short journeys in months. */
+/**
+ * A defensive display sanity bound, not verified market data and not a
+ * claim that any real career transition necessarily completes within 5
+ * years. A maximum beyond this is shown open-ended ("5+ years") rather
+ * than silently shortened — a genuinely longer transition, honestly
+ * implied by the roadmap's own steps, is never misrepresented as
+ * achievable within the ceiling.
+ */
+const CEILING_MONTHS = 60;
+const CEILING_YEARS = CEILING_MONTHS / 12;
+
+function pluralize(value: number, unit: string): string {
+  return `${value} ${unit}${value === 1 ? "" : "s"}`;
+}
+
+/** Expresses a single bound in whichever unit it naturally belongs to,
+ * rather than always converting to years once the range as a whole is
+ * "in years" — see formatJourneyHeadline. */
+function formatBound(months: number): { value: number; unit: "month" | "year" } {
+  return months < 12
+    ? { value: months, unit: "month" }
+    : { value: Math.round(months / 12), unit: "year" };
+}
+
+/**
+ * "3-6 months" for short ranges; "2-3 years" once both bounds are
+ * naturally years; "3 months–2 years" when they're not — never rounding a
+ * genuinely sub-year minimum up into "1 year" just because the maximum
+ * crossed into years. Beyond CEILING_MONTHS, the maximum is shown
+ * open-ended rather than silently capped to a shorter, wrong number.
+ */
 function formatJourneyHeadline(minMonths: number, maxMonths: number): string {
   if (maxMonths < 18) {
     return minMonths === maxMonths
-      ? `${minMonths} months`
+      ? pluralize(minMonths, "month")
       : `${minMonths}-${maxMonths} months`;
   }
 
-  const minYears = Math.max(1, Math.round(minMonths / 12));
-  const maxYears = Math.max(minYears, Math.round(maxMonths / 12));
+  const openEnded = maxMonths > CEILING_MONTHS;
+  const min = formatBound(minMonths);
 
-  return minYears === maxYears ? `${minYears} years` : `${minYears}-${maxYears} years`;
+  if (openEnded) {
+    return min.unit === "year"
+      ? min.value >= CEILING_YEARS
+        ? `${CEILING_YEARS}+ years`
+        : `${min.value}-${CEILING_YEARS}+ years`
+      : `${pluralize(minMonths, "month")}–${CEILING_YEARS}+ years`;
+  }
+
+  const max = formatBound(maxMonths);
+
+  if (min.unit === max.unit) {
+    return min.value === max.value
+      ? pluralize(min.value, min.unit)
+      : `${min.value}-${max.value} ${max.unit}s`;
+  }
+
+  // Mixed units — a sub-year minimum with a multi-year maximum.
+  return `${pluralize(minMonths, "month")}–${pluralize(max.value, "year")}`;
 }
 
 function JourneyEstimateCard({
   estimate,
+  requestedTimeframe,
 }: {
   estimate: RoadmapJourneyEstimate;
+  /** The user's own stated preference, or null when they never set one —
+   * never invented, and never rendered as though it were a guarantee. */
+  requestedTimeframe: string | null;
 }) {
   const { minMonths, maxMonths, stepsCounted, stepsTotal } = estimate;
 
@@ -66,6 +118,12 @@ function JourneyEstimateCard({
 
   return (
     <Card>
+      {requestedTimeframe && (
+        <Text style={styles.requestedTimeframe}>
+          You asked to get there in {requestedTimeframe}.
+        </Text>
+      )}
+
       <Text style={styles.journeyHeadline}>
         Estimated journey: approximately{" "}
         {formatJourneyHeadline(minMonths, maxMonths)}
@@ -80,7 +138,8 @@ function JourneyEstimateCard({
       <Text style={styles.journeyFootnote}>
         Assumes some steps can overlap with earlier ones — e.g. building a
         portfolio or networking while still in your current role — rather
-        than every step happening strictly one after another.
+        than every step happening strictly one after another. This is
+        VELYQO&apos;s estimate, not a promise.
       </Text>
     </Card>
   );
@@ -143,14 +202,17 @@ function EndpointSalary({
 /**
  * Renders one complete roadmap. Used twice, unchanged, when the user chose
  * "show me both pathways" — each destination gets the identical treatment,
- * neither is visually privileged over the other.
+ * neither is visually privileged over the other. `requestedTimeframe` is
+ * the same single user preference either way, not per-destination.
  */
 function RoadmapView({
   roadmap,
   onRetry,
+  requestedTimeframe,
 }: {
   roadmap: Roadmap;
   onRetry: () => void;
+  requestedTimeframe: string | null;
 }) {
   return (
     <>
@@ -179,7 +241,10 @@ function RoadmapView({
       <Text style={styles.targetRole}>{roadmap.target.title}</Text>
 
       {roadmap.estimatedJourney ? (
-        <JourneyEstimateCard estimate={roadmap.estimatedJourney} />
+        <JourneyEstimateCard
+          estimate={roadmap.estimatedJourney}
+          requestedTimeframe={requestedTimeframe}
+        />
       ) : null}
 
       {roadmap.summary ? (
@@ -311,7 +376,14 @@ export default function TimelineScreen() {
     choosingDestination,
     reconsiderDestination,
     retryGeneration,
+    targetTimeframe,
   } = useRoadmap();
+
+  // Never invented — absent whenever the user hasn't set one, exactly as
+  // stored, so the UI never displays a preference they didn't state.
+  const requestedTimeframe = targetTimeframe
+    ? TARGET_TIMEFRAME_LABELS[targetTimeframe]
+    : null;
 
   if (loading) {
     return <LoadingScreen message="Building your career roadmap..." />;
@@ -368,7 +440,11 @@ export default function TimelineScreen() {
               </TouchableOpacity>
             )}
 
-            <RoadmapView roadmap={roadmap} onRetry={retryGeneration} />
+            <RoadmapView
+              roadmap={roadmap}
+              onRetry={retryGeneration}
+              requestedTimeframe={requestedTimeframe}
+            />
 
             {alternateRoadmap && (
               <>
@@ -379,6 +455,7 @@ export default function TimelineScreen() {
                 <RoadmapView
                   roadmap={alternateRoadmap}
                   onRetry={retryGeneration}
+                  requestedTimeframe={requestedTimeframe}
                 />
               </>
             )}
@@ -458,6 +535,13 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontSize: 18,
     fontWeight: "700",
+  },
+
+  requestedTimeframe: {
+    color: Colors.subtext,
+    fontSize: 13,
+    textAlign: "center",
+    marginBottom: 8,
   },
 
   journeyHeadline: {
