@@ -18,48 +18,6 @@ const GENERIC_MISSION: Mission = {
     "Consistent daily learning compounds faster than occasional long study sessions.",
 };
 
-const missions: Record<string, Mission> = {
-  "head of engineering": {
-    title: "Leadership Development",
-    description:
-      "Spend 30 minutes studying engineering leadership or mentoring a colleague today.",
-    estimatedTime: "30 mins",
-    impact:
-      "Leadership is the main thing separating senior engineers from engineering leaders.",
-  },
-
-  manager: {
-    title: "Practice Leadership",
-    description:
-      "Lead a meeting, coach a teammate, or improve a team process today.",
-    estimatedTime: "30 mins",
-    impact:
-      "Visible leadership is what hiring managers look for when promoting into management.",
-  },
-
-  "metrology engineer": {
-    title: "Improve Technical Skills",
-    description:
-      "Learn one new metrology technique or measurement best practice today.",
-    estimatedTime: "20 mins",
-    impact:
-      "Deeper measurement expertise is the clearest signal of technical seniority in metrology.",
-  },
-};
-
-/**
- * Unchanged from before this phase — still used by aiContextService for the
- * AI Coach's system-prompt context, which this phase deliberately does not
- * touch. The Dashboard's own Today's Mission no longer calls this; see
- * missionFromRoadmapStep / fallbackMission below, which derive from the
- * user's real roadmap (or honestly degrade) instead of this fixed table.
- */
-export function getTodaysMission(targetRole?: string): Mission {
-  const role = (targetRole ?? "").toLowerCase();
-
-  return missions[role] ?? GENERIC_MISSION;
-}
-
 /**
  * Tier 1 — derives today's mission from the real next step of an
  * already-generated, cached roadmap. Never guesses at content the step

@@ -3,7 +3,6 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import CareerReadinessCard from "../../components/dashboard-v2/CareerReadinessCard";
 import DailyBriefCard from "../../components/dashboard-v2/DailyBriefCard";
 import HeroCard from "../../components/dashboard-v2/HeroCard";
-import MissionCard from "../../components/dashboard-v2/MissionCard";
 import QuickActions from "../../components/dashboard-v2/QuickActions";
 import SalaryGrowthCard from "../../components/dashboard-v2/SalaryGrowthCard";
 
@@ -25,7 +24,6 @@ export default function DashboardScreen() {
     momentum,
     statedTargetSalary,
     targetSalaryBand,
-    recommendation,
     careerBrief,
   } = useDashboard();
 
@@ -73,8 +71,6 @@ export default function DashboardScreen() {
         nextMilestone={careerBrief.nextMilestone}
         impact={careerBrief.impact}
       />
-
-      <MissionCard title={recommendation.title} />
 
       <CareerReadinessCard progress={careerBrief.readiness} />
 
