@@ -15,12 +15,15 @@ import { Roadmap, RoadmapSalary } from "../types/roadmap";
 import { useProfile } from "./useProfile";
 
 /**
- * Bump when the Roadmap shape or generation logic changes, so cached
- * roadmaps built by an older version are discarded rather than rendered.
+ * Bump when the Roadmap shape, generation logic, or cache key shape changes,
+ * so cached roadmaps built by an older version are discarded rather than
+ * rendered.
  */
 // v6: Roadmap now carries alternativeCareers — a v5 entry predates it and
 // must not be reused.
-const CACHE_VERSION = "v6";
+// v7: Cache keys are now scoped by userId — a v6 entry has no user segment
+// and must not be reused, since it could belong to a different account.
+const CACHE_VERSION = "v7";
 
 const ROADMAP_CACHE_PREFIX = "velyqo:roadmap";
 const DECISION_CACHE_PREFIX = "velyqo:destination-decision";
@@ -36,7 +39,12 @@ function simpleHash(raw: string): string {
   return Math.abs(hash).toString(36);
 }
 
-function roadmapCacheKey(input: RoadmapInput): string {
+/**
+ * `userId` scopes every cache entry to the signed-in account — without it,
+ * two different users with a similar-enough profile on the same device
+ * would hash to the same key and read/overwrite each other's cache.
+ */
+function roadmapCacheKey(input: RoadmapInput, userId: string | null): string {
   const raw = [
     input.currentRole,
     input.currentOccupationId,
@@ -60,7 +68,7 @@ function roadmapCacheKey(input: RoadmapInput): string {
     .join("|")
     .toLowerCase();
 
-  return `${ROADMAP_CACHE_PREFIX}:${CACHE_VERSION}:${simpleHash(raw)}`;
+  return `${ROADMAP_CACHE_PREFIX}:${CACHE_VERSION}:${userId ?? "anon"}:${simpleHash(raw)}`;
 }
 
 /**
@@ -74,12 +82,13 @@ function decisionCacheKey(
   targetOccupationId: string | null,
   targetSalary: number | null,
   countryCode: string | null,
+  userId: string | null,
 ): string {
   const raw = [targetRole, targetOccupationId, targetSalary, countryCode]
     .join("|")
     .toLowerCase();
 
-  return `${DECISION_CACHE_PREFIX}:${CACHE_VERSION}:${simpleHash(raw)}`;
+  return `${DECISION_CACHE_PREFIX}:${CACHE_VERSION}:${userId ?? "anon"}:${simpleHash(raw)}`;
 }
 
 interface StoredDecision {
@@ -110,8 +119,11 @@ async function writeJson(key: string, value: unknown): Promise<void> {
   }
 }
 
-async function loadOrBuildRoadmap(input: RoadmapInput): Promise<Roadmap> {
-  const key = roadmapCacheKey(input);
+async function loadOrBuildRoadmap(
+  input: RoadmapInput,
+  userId: string | null,
+): Promise<Roadmap> {
+  const key = roadmapCacheKey(input, userId);
 
   const cached = await readJson<Roadmap>(key);
 
@@ -165,6 +177,7 @@ export async function findCachedRoadmap(
   userData: UserData,
 ): Promise<Roadmap | null> {
   const {
+    userId,
     currentRole,
     currentOccupationId,
     currentSalary,
@@ -208,14 +221,14 @@ export async function findCachedRoadmap(
   };
 
   const decision = await readJson<StoredDecision>(
-    decisionCacheKey(targetRole, targetOccupationId, numericTargetSalary, countryCode),
+    decisionCacheKey(targetRole, targetOccupationId, numericTargetSalary, countryCode, userId),
   );
 
   const override = decision ? buildOverride(decision, baseInput) : null;
 
   if (override) {
     const overrideRoadmap = await readJson<Roadmap>(
-      roadmapCacheKey({ ...baseInput, destinationOverride: override }),
+      roadmapCacheKey({ ...baseInput, destinationOverride: override }, userId),
     );
 
     if (overrideRoadmap && overrideRoadmap.steps.length > 0) {
@@ -224,7 +237,7 @@ export async function findCachedRoadmap(
   }
 
   const primaryRoadmap = await readJson<Roadmap>(
-    roadmapCacheKey({ ...baseInput, destinationOverride: null }),
+    roadmapCacheKey({ ...baseInput, destinationOverride: null }, userId),
   );
 
   return primaryRoadmap && primaryRoadmap.steps.length > 0
@@ -291,6 +304,7 @@ export function useRoadmap() {
   const [choosingDestination, setChoosingDestination] = useState(false);
 
   const {
+    userId,
     currentRole,
     currentOccupationId,
     currentSalary,
@@ -368,8 +382,11 @@ export function useRoadmap() {
 
       if (decision.priority === "both") {
         const [primary, alternate] = await Promise.all([
-          loadOrBuildRoadmap({ ...baseInput, destinationOverride: null }),
-          loadOrBuildRoadmap({ ...baseInput, destinationOverride: override }),
+          loadOrBuildRoadmap({ ...baseInput, destinationOverride: null }, userId),
+          loadOrBuildRoadmap(
+            { ...baseInput, destinationOverride: override },
+            userId,
+          ),
         ]);
 
         if (!active) {
@@ -385,10 +402,13 @@ export function useRoadmap() {
         return;
       }
 
-      const result = await loadOrBuildRoadmap({
-        ...baseInput,
-        destinationOverride: override,
-      });
+      const result = await loadOrBuildRoadmap(
+        {
+          ...baseInput,
+          destinationOverride: override,
+        },
+        userId,
+      );
 
       if (!active) {
         return;
@@ -407,6 +427,7 @@ export function useRoadmap() {
           targetOccupationId,
           numericTargetSalary,
           countryCode,
+          userId,
         );
 
         const storedDecision = await readJson<StoredDecision>(dKey);
@@ -511,6 +532,7 @@ export function useRoadmap() {
   }, [
     profileLoading,
     profileError,
+    userId,
     currentRole,
     currentOccupationId,
     currentSalary,
@@ -559,6 +581,7 @@ export function useRoadmap() {
         comparison.requestedOccupationId,
         comparison.requestedSalary,
         toCountryCode(country),
+        userId,
       );
 
       await writeJson(dKey, decision);
@@ -589,8 +612,11 @@ export function useRoadmap() {
 
       if (decision.priority === "both") {
         const [primary, alternate] = await Promise.all([
-          loadOrBuildRoadmap({ ...baseInput, destinationOverride: null }),
-          loadOrBuildRoadmap({ ...baseInput, destinationOverride: override }),
+          loadOrBuildRoadmap({ ...baseInput, destinationOverride: null }, userId),
+          loadOrBuildRoadmap(
+            { ...baseInput, destinationOverride: override },
+            userId,
+          ),
         ]);
 
         setRoadmap(primary);
@@ -602,10 +628,13 @@ export function useRoadmap() {
         return;
       }
 
-      const result = await loadOrBuildRoadmap({
-        ...baseInput,
-        destinationOverride: override,
-      });
+      const result = await loadOrBuildRoadmap(
+        {
+          ...baseInput,
+          destinationOverride: override,
+        },
+        userId,
+      );
 
       setRoadmap(result);
       setAlternateRoadmap(null);
@@ -633,6 +662,7 @@ export function useRoadmap() {
       targetOccupationId,
       Number(targetSalary) || null,
       toCountryCode(country),
+      userId,
     );
 
     try {

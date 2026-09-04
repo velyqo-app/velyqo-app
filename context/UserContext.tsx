@@ -8,6 +8,10 @@ import {
 } from "../types/careerContext";
 
 export interface UserData {
+  /** The signed-in user's id, or null before it's known. Scopes the local
+   * roadmap/decision cache so two accounts on the same device never collide. */
+  userId: string | null;
+
   userType: string;
   name: string;
   goal: string;
@@ -41,6 +45,8 @@ export const UserContext = createContext<UserContextType>(
 );
 
 const defaultUser: UserData = {
+  userId: null,
+
   userType: "",
   name: "",
   goal: "",

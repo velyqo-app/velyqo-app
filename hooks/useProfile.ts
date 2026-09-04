@@ -40,6 +40,11 @@ export function useProfile() {
         return;
       }
 
+      // Set independently of profile completeness — the local roadmap cache
+      // keys off this the moment a session exists, not once onboarding is
+      // done, so it's correct even mid-onboarding.
+      setUserData((prev) => ({ ...prev, userId: user.id }));
+
       const { data, error: fetchError } = await getProfile(user.id);
 
       if (fetchError) {
