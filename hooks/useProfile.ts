@@ -1,3 +1,4 @@
+import { isAuthSessionMissingError } from "@supabase/supabase-js";
 import { useCallback, useContext, useEffect, useState } from "react";
 
 import { UserContext } from "../context/UserContext";
@@ -20,7 +21,19 @@ export function useProfile() {
     try {
       const {
         data: { user },
+        error: userError,
       } = await getCurrentUser();
+
+      // A missing session is the normal signed-out case, handled below like
+      // before. Any other error (network/DNS failure, etc.) is a genuine
+      // fetch failure and must not be silently treated as "no profile yet".
+      if (userError && !isAuthSessionMissingError(userError)) {
+        console.warn("Current user fetch failed:", userError);
+
+        setError(true);
+        setLoading(false);
+        return;
+      }
 
       if (!user) {
         setLoading(false);
