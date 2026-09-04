@@ -42,6 +42,15 @@ function formatMoney(currency: string, amount: number) {
   return `${currency} ${amount.toLocaleString()}`;
 }
 
+/** Lowercases only a label's leading character, so a value written for
+ * standalone display (an onboarding option, "Target timeframe: X") also
+ * reads naturally embedded mid-sentence — without a per-label special
+ * case, and without altering labels that don't start with a letter (e.g.
+ * "1–2 years"). */
+function decapitalize(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
 /**
  * A defensive display sanity bound, not verified market data and not a
  * claim that any real career transition necessarily completes within 5
@@ -120,7 +129,7 @@ function JourneyEstimateCard({
     <Card>
       {requestedTimeframe && (
         <Text style={styles.requestedTimeframe}>
-          You asked to get there in {requestedTimeframe}.
+          You asked to get there in {decapitalize(requestedTimeframe)}.
         </Text>
       )}
 

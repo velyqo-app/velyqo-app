@@ -1,4 +1,6 @@
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useFocusEffect } from "expo-router";
+import { useCallback } from "react";
+import { BackHandler, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import CareerReadinessCard from "../../components/dashboard-v2/CareerReadinessCard";
 import DailyBriefCard from "../../components/dashboard-v2/DailyBriefCard";
@@ -26,6 +28,30 @@ export default function DashboardScreen() {
     targetSalaryBand,
     careerBrief,
   } = useDashboard();
+
+  // Dashboard is the root of the authenticated app — there is no meaningful
+  // authenticated screen below it to go back to. Without this, hardware
+  // Back falls through to the pre-auth stack and briefly shows index.tsx's
+  // stale signed-out state (its session check only runs once, on mount,
+  // before login happened). Exiting here matches standard Android behavior
+  // for a root/home screen instead of exposing that stale screen.
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== "android") {
+        return;
+      }
+
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        () => {
+          BackHandler.exitApp();
+          return true;
+        },
+      );
+
+      return () => subscription.remove();
+    }, []),
+  );
 
   if (loading) {
     return <LoadingScreen message="Preparing your Career Brief..." />;

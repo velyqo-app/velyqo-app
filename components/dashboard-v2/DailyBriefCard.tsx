@@ -74,13 +74,13 @@ export default function DailyBriefCard({
       <View style={styles.divider} />
 
       <View style={styles.row}>
-        <View>
+        <View style={styles.metric}>
           <Text style={styles.label}>Estimated Time</Text>
 
           <Text style={styles.small}>{estimatedTime}</Text>
         </View>
 
-        <View>
+        <View style={styles.metric}>
           <Text style={styles.label}>Next Milestone</Text>
 
           <Text style={styles.small}>{nextMilestone}</Text>
@@ -138,7 +138,11 @@ const styles = StyleSheet.create({
 
   row: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 16,
+  },
+
+  metric: {
+    flex: 1,
   },
 
   small: {
