@@ -15,7 +15,7 @@ import { loadSalary, resolveEndpoint } from "../services/roadmapService";
 import { getRecommendation } from "../services/recommendationService";
 
 import { Mission } from "../types/mission";
-import { RoadmapSalary } from "../types/roadmap";
+import { RoadmapJourneyEstimate, RoadmapSalary } from "../types/roadmap";
 
 export function useDashboard() {
   const {
@@ -93,9 +93,13 @@ export function useDashboard() {
   const [missionInfo, setMissionInfo] = useState<{
     mission: Mission;
     nextMilestone: string;
+    // Null whenever no cached roadmap exists yet (the fallback-mission
+    // branches below) — Home's Journey summary reads this to show an honest
+    // "no roadmap yet" state rather than a guessed duration.
+    estimatedJourney: RoadmapJourneyEstimate | null;
   }>(() => {
     const mission = fallbackMission("", "", "");
-    return { mission, nextMilestone: mission.title };
+    return { mission, nextMilestone: mission.title, estimatedJourney: null };
   });
 
   const [missionLoading, setMissionLoading] = useState(true);
@@ -107,7 +111,7 @@ export function useDashboard() {
 
     if (profileError) {
       const mission = fallbackMission("", "", "");
-      setMissionInfo({ mission, nextMilestone: mission.title });
+      setMissionInfo({ mission, nextMilestone: mission.title, estimatedJourney: null });
       setMissionLoading(false);
       return;
     }
@@ -132,11 +136,12 @@ export function useDashboard() {
           nextMilestone: stepsTotal
             ? `${step.title} (Step ${step.order} of ${stepsTotal})`
             : step.title,
+          estimatedJourney: roadmap.estimatedJourney,
         });
       } else {
         const mission = fallbackMission(targetRole, currentRole, startingSituation);
 
-        setMissionInfo({ mission, nextMilestone: mission.title });
+        setMissionInfo({ mission, nextMilestone: mission.title, estimatedJourney: null });
       }
 
       setMissionLoading(false);
@@ -179,6 +184,7 @@ export function useDashboard() {
         estimatedTime: missionInfo.mission.estimatedTime,
         nextMilestone: missionInfo.nextMilestone,
         impact: missionInfo.mission.impact,
+        estimatedJourney: missionInfo.estimatedJourney,
 
         readiness: progress.career_readiness,
       },
@@ -197,8 +203,11 @@ export function useDashboard() {
       : null;
 
   return {
-    loading:
-      profileLoading || progressLoading || salaryLoading || missionLoading,
+    // Deliberately excludes salaryLoading — Home (this hook's only current
+    // consumer) no longer displays salary, so there's nothing on screen for
+    // that fetch to block. targetSalaryBand/targetSalarySource are still
+    // computed below for whenever Profile needs them.
+    loading: profileLoading || progressLoading || missionLoading,
 
     error: profileError,
     retry: reloadProfile,

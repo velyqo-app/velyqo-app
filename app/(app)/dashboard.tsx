@@ -1,33 +1,37 @@
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import { BackHandler, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import CareerReadinessCard from "../../components/dashboard-v2/CareerReadinessCard";
-import DailyBriefCard from "../../components/dashboard-v2/DailyBriefCard";
-import HeroCard from "../../components/dashboard-v2/HeroCard";
-import QuickActions from "../../components/dashboard-v2/QuickActions";
-import SalaryGrowthCard from "../../components/dashboard-v2/SalaryGrowthCard";
+import MomentumCard from "../../components/dashboard-v2/MomentumCard";
+
+import CareerCoachEntry from "../../components/home/CareerCoachEntry";
+import Greeting from "../../components/home/Greeting";
+import JourneySummaryCard from "../../components/home/JourneySummaryCard";
+import NextMoveCard from "../../components/home/NextMoveCard";
+import RoleIndicatorRow from "../../components/home/RoleIndicatorRow";
+import WhyThisMattersCard from "../../components/home/WhyThisMattersCard";
 
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
 import LoadingScreen from "../../components/ui/LoadingScreen";
 
-import MomentumCard from "../../components/dashboard-v2/MomentumCard";
 import { Colors } from "../../constants/theme";
 import { useDashboard } from "../../hooks/useDashboard";
 
 export default function DashboardScreen() {
-  const {
-    loading,
-    error,
-    retry,
-    userData,
-    progress,
-    momentum,
-    statedTargetSalary,
-    targetSalaryBand,
-    careerBrief,
-  } = useDashboard();
+  const { loading, error, retry, userData, progress, momentum, careerBrief } =
+    useDashboard();
+
+  const goToJourney = () => router.push("/timeline");
+
+  const startMission = () => {
+    router.push({
+      pathname: "/ai-coach",
+      params: { mission: careerBrief.mission.title },
+    });
+  };
+
+  const goToCoach = () => router.push("/ai-coach");
 
   // Dashboard is the root of the authenticated app — there is no meaningful
   // authenticated screen below it to go back to. Without this, hardware
@@ -77,11 +81,30 @@ export default function DashboardScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <HeroCard
-        name={userData.name}
+      <Greeting name={userData.name} />
+
+      <RoleIndicatorRow
+        currentRole={userData.currentRole}
+        targetRole={userData.targetRole}
+        onPress={goToJourney}
+      />
+
+      <NextMoveCard
+        title={careerBrief.mission.title}
+        description={careerBrief.mission.description}
+        estimatedTime={careerBrief.estimatedTime}
+        onStart={startMission}
+      />
+
+      <JourneySummaryCard
+        currentRole={userData.currentRole}
         targetRole={userData.targetRole}
         progress={careerBrief.readiness}
+        estimatedJourney={careerBrief.estimatedJourney}
+        onPress={goToJourney}
       />
+
+      <WhyThisMattersCard impact={careerBrief.impact} />
 
       <MomentumCard
         momentum={momentum}
@@ -89,24 +112,7 @@ export default function DashboardScreen() {
         missionsCompleted={progress.missions_completed}
       />
 
-      <DailyBriefCard
-        name={userData.name}
-        progress={careerBrief.readiness}
-        mission={careerBrief.mission.title}
-        estimatedTime={careerBrief.estimatedTime}
-        nextMilestone={careerBrief.nextMilestone}
-        impact={careerBrief.impact}
-      />
-
-      <CareerReadinessCard progress={careerBrief.readiness} />
-
-      <SalaryGrowthCard
-        currentSalary={userData.currentSalary}
-        statedTargetSalary={statedTargetSalary}
-        targetSalaryBand={targetSalaryBand}
-      />
-
-      <QuickActions />
+      <CareerCoachEntry onPress={goToCoach} />
     </ScrollView>
   );
 }
@@ -114,7 +120,7 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B1120",
+    backgroundColor: Colors.background,
   },
 
   content: {
@@ -124,7 +130,7 @@ const styles = StyleSheet.create({
 
   errorContainer: {
     flex: 1,
-    backgroundColor: "#0B1120",
+    backgroundColor: Colors.background,
     justifyContent: "center",
     padding: 20,
   },
