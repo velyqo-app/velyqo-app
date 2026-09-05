@@ -8,6 +8,7 @@ import {
     View,
 } from "react-native";
 
+import { Colors, Radius } from "../constants/theme";
 import { Occupation } from "../types/occupation";
 
 interface OccupationAutocompleteProps {
@@ -39,7 +40,7 @@ export default function OccupationAutocomplete({
         placeholder={placeholder}
         autoCorrect={false}
         autoCapitalize="none"
-        placeholderTextColor="#94A3B8"
+        placeholderTextColor={Colors.subtext}
         style={styles.input}
       />
 
@@ -78,6 +79,7 @@ const styles = StyleSheet.create({
   },
 
   label: {
+    color: Colors.text,
     fontSize: 16,
     fontWeight: "600",
     marginBottom: 8,
@@ -85,12 +87,13 @@ const styles = StyleSheet.create({
 
   input: {
     borderWidth: 1,
-    borderColor: "#D1D5DB",
-    borderRadius: 12,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Colors.card,
+    color: Colors.text,
   },
 
   loadingContainer: {
@@ -101,19 +104,20 @@ const styles = StyleSheet.create({
   list: {
     marginTop: 8,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
     maxHeight: 220,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Colors.card,
   },
 
   item: {
     padding: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: Colors.border,
   },
 
   title: {
+    color: Colors.text,
     fontSize: 16,
     fontWeight: "600",
   },
@@ -121,6 +125,6 @@ const styles = StyleSheet.create({
   subtitle: {
     marginTop: 2,
     fontSize: 13,
-    color: "#6B7280",
+    color: Colors.subtext,
   },
 });

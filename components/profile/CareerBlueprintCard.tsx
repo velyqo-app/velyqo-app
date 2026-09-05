@@ -25,6 +25,18 @@ interface Props {
    * genuinely never asked, not defaulted — since no verified salary conflict
    * was found. Distinct from any SalaryPriority value. */
   priority: SalaryPriority | null;
+
+  onEditCurrentRole: () => void;
+  onEditCurrentSalary: () => void;
+  onEditExperienceLevel: () => void;
+  onEditSkills: () => void;
+  onEditTargetRole: () => void;
+  onEditTargetSalary: () => void;
+  onEditTargetTimeframe: () => void;
+
+  /** Omitted (not just a no-op) when priority is null — there is nothing to
+   * reconsider yet, so the row must render as inert, not as a dead button. */
+  onEditPriority?: () => void;
 }
 
 function formatMoney(value: string): string {
@@ -40,16 +52,29 @@ export default function CareerBlueprintCard({
   targetSalary,
   targetTimeframe,
   priority,
+  onEditCurrentRole,
+  onEditCurrentSalary,
+  onEditExperienceLevel,
+  onEditSkills,
+  onEditTargetRole,
+  onEditTargetSalary,
+  onEditTargetTimeframe,
+  onEditPriority,
 }: Props) {
   return (
     <Card>
       <Text style={styles.title}>Career Blueprint</Text>
 
-      <BlueprintField label="Current Role" value={currentRole || "Not set"} />
+      <BlueprintField
+        label="Current Role"
+        value={currentRole || "Not set"}
+        onPress={onEditCurrentRole}
+      />
 
       <BlueprintField
         label="Current Salary"
         value={formatMoney(currentSalary)}
+        onPress={onEditCurrentSalary}
       />
 
       <BlueprintField
@@ -57,18 +82,25 @@ export default function CareerBlueprintCard({
         value={
           experienceLevel ? EXPERIENCE_LEVEL_LABELS[experienceLevel] : "Not set"
         }
+        onPress={onEditExperienceLevel}
       />
 
       <BlueprintField
         label="Skills"
         value={skills.length > 0 ? skills.join(", ") : "None added yet"}
+        onPress={onEditSkills}
       />
 
-      <BlueprintField label="Target Role" value={targetRole || "Not set"} />
+      <BlueprintField
+        label="Target Role"
+        value={targetRole || "Not set"}
+        onPress={onEditTargetRole}
+      />
 
       <BlueprintField
         label="Target Salary"
         value={formatMoney(targetSalary)}
+        onPress={onEditTargetSalary}
       />
 
       <BlueprintField
@@ -76,6 +108,7 @@ export default function CareerBlueprintCard({
         value={
           targetTimeframe ? TARGET_TIMEFRAME_LABELS[targetTimeframe] : "Not set"
         }
+        onPress={onEditTargetTimeframe}
       />
 
       <BlueprintField
@@ -85,6 +118,7 @@ export default function CareerBlueprintCard({
             ? SALARY_PRIORITY_LABELS[priority]
             : "Not applicable yet — no salary trade-off has come up for this target"
         }
+        onPress={onEditPriority}
         last
       />
     </Card>

@@ -23,7 +23,10 @@ import { useProfile } from "./useProfile";
 // must not be reused.
 // v7: Cache keys are now scoped by userId — a v6 entry has no user segment
 // and must not be reused, since it could belong to a different account.
-const CACHE_VERSION = "v7";
+// v8: currentSalary dropped from the roadmap key (see roadmapCacheKey) — a v7
+// entry was hashed with it included and must not be reused, or a stale entry
+// from before this bump could be misread as still matching.
+const CACHE_VERSION = "v8";
 
 const ROADMAP_CACHE_PREFIX = "velyqo:roadmap";
 const DECISION_CACHE_PREFIX = "velyqo:destination-decision";
@@ -48,7 +51,11 @@ function roadmapCacheKey(input: RoadmapInput, userId: string | null): string {
   const raw = [
     input.currentRole,
     input.currentOccupationId,
-    input.currentSalary,
+
+    // Deliberately excluded: currentSalary affects display-side calculations
+    // (SalaryGrowthCard, Profile's Blueprint) but not the roadmap's own step
+    // content, so editing it from Profile must not look like a role change —
+    // it must reuse the existing cached roadmap rather than invalidate it.
     input.targetRole,
     input.targetOccupationId,
     input.targetSalary,
@@ -274,6 +281,96 @@ export async function getStoredPriority(
   );
 
   return decision?.priority ?? null;
+}
+
+/**
+ * Explicitly clears the roadmap (and, when the target itself changed, the
+ * Destination Decision) cached under `previousUserData` — the values from
+ * immediately before a confirmed role change or an explicit "reconsider my
+ * priority" action. Content-addressed caching already makes these entries
+ * unreachable once `userData` reflects the new values (their keys simply
+ * stop matching), but this removes them outright so nothing stale lingers
+ * in storage and a future cache-key coincidence can't resurrect them.
+ *
+ * Must only be called *after* the user has explicitly confirmed the change
+ * that makes `previousUserData` stale — never speculatively, and never for
+ * an edit to a field that isn't part of either cache key (e.g. skills or
+ * experience level, which are left to invalidate themselves naturally by
+ * changing the roadmap key on their own).
+ */
+export async function invalidateCachedRoadmap(
+  previousUserData: UserData,
+  { alsoDecision }: { alsoDecision: boolean },
+): Promise<void> {
+  const {
+    userId,
+    currentRole,
+    currentOccupationId,
+    currentSalary,
+    targetRole,
+    targetOccupationId,
+    targetSalary,
+    country,
+    goal,
+    startingSituation,
+    experienceLevel,
+    educationLevel,
+    skills,
+    targetTimeframe,
+  } = previousUserData;
+
+  const countryCode = toCountryCode(country);
+  const numericTargetSalary = Number(targetSalary) || null;
+
+  const baseInput: Omit<RoadmapInput, "destinationOverride"> = {
+    currentRole,
+    currentOccupationId,
+    currentSalary: Number(currentSalary) || null,
+
+    targetRole,
+    targetOccupationId,
+    targetSalary: numericTargetSalary,
+
+    countryCode,
+    country: country || null,
+    purpose: goal || null,
+
+    startingSituation,
+    experienceLevel,
+    educationLevel,
+    skills,
+    targetTimeframe,
+  };
+
+  await AsyncStorage.removeItem(
+    roadmapCacheKey({ ...baseInput, destinationOverride: null }, userId),
+  );
+
+  if (!alsoDecision) {
+    return;
+  }
+
+  const dKey = decisionCacheKey(
+    targetRole,
+    targetOccupationId,
+    numericTargetSalary,
+    countryCode,
+    userId,
+  );
+
+  const decision = await readJson<StoredDecision>(dKey);
+
+  if (decision) {
+    const override = buildOverride(decision, baseInput);
+
+    if (override) {
+      await AsyncStorage.removeItem(
+        roadmapCacheKey({ ...baseInput, destinationOverride: override }, userId),
+      );
+    }
+
+    await AsyncStorage.removeItem(dKey);
+  }
 }
 
 export interface DestinationComparison {
