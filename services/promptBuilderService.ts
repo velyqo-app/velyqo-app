@@ -4,6 +4,7 @@ import {
   EXPERIENCE_LEVEL_LABELS,
   EducationLevel,
   ExperienceLevel,
+  SALARY_PRIORITY_LABELS,
   STARTING_SITUATION_LABELS,
   StartingSituation,
   TARGET_TIMEFRAME_LABELS,
@@ -382,24 +383,81 @@ no commentary before or after.
 `;
 }
 
+/**
+ * Builds the Coach conversation prompt.
+ *
+ * `profile` is a raw database row, so every field here must be snake_case.
+ * Reading camelCase keys off it previously sent literal "undefined" values
+ * to the model, which is exactly what stops responses being personalised.
+ *
+ * Every figure here is either the user's own stated data or the roadmap's
+ * own already-honest, already-clamped output — nothing new is computed or
+ * guessed for the model. Salary is passed through as the user's own stated
+ * number, never a market range (verified salary bands are shown to the user
+ * directly elsewhere, with their own provenance labelling — the Coach is not
+ * where that verification happens).
+ */
 export function buildCoachPrompt(context: AIContext, message: string): string {
-  const { profile, mission, progress, momentum } = context;
+  const { profile, mission, progress, momentum, roadmap, priority } = context;
 
-  // `profile` is a raw database row, so every field here must be snake_case.
-  // Reading camelCase keys off it previously sent literal "undefined" values
-  // to the model, which is exactly what stops responses being personalised.
+  const experience = profile.experience_level
+    ? EXPERIENCE_LEVEL_LABELS[profile.experience_level as ExperienceLevel]
+    : NOT_SET;
+
+  const timeframe = profile.target_timeframe
+    ? TARGET_TIMEFRAME_LABELS[profile.target_timeframe as TargetTimeframe]
+    : NOT_SET;
+
+  const skills =
+    profile.skills && profile.skills.length > 0
+      ? profile.skills.join(", ")
+      : "None confirmed yet";
+
+  const estimatedJourney = roadmap?.estimatedJourney
+    ? `${roadmap.estimatedJourney.minMonths}-${roadmap.estimatedJourney.maxMonths} months total (VELYQO's own estimate from the roadmap below, not verified data)`
+    : "Not yet estimated — no roadmap generated for this person yet";
+
+  const stepsTotal = roadmap?.steps.length ?? 0;
+  const currentStep = roadmap && stepsTotal > 0 ? roadmap.steps[0] : null;
+
+  const roadmapBlock = currentStep
+    ? `Current/next roadmap milestone: ${currentStep.title}
+Why this milestone matters for them: ${currentStep.rationale || "Not specified"}
+Typical time for this milestone: ${currentStep.estimatedTime || NOT_SET}
+Total steps in their roadmap: ${stepsTotal}`
+    : "This person has no generated roadmap yet.";
+
   return `
-You are Velyqo, an AI Career Coach.
-
-Your mission is to help professionals make one meaningful career improvement today.
+You are Velyqo, a personal AI Career Coach embedded in the VELYQO app — not a
+generic chat assistant. The user already sees their career context elsewhere
+in the app (Home, their Journey timeline, their Profile); you are the place
+they come to ask questions and get advice, not to have their profile recited
+back at them.
 
 Guidelines:
-- Personalise every response using the user's profile.
-- Explain why your advice matters.
-- Be encouraging but realistic.
-- Recommend one clear next step.
-- Keep responses concise unless the user asks for more detail.
-- If a detail below is "${NOT_SET}", ask for it rather than assuming a value.
+- Use the context below naturally, the way a coach who already knows their
+  client would — do not restate their whole profile in every response.
+- Ground advice in their actual current milestone/roadmap when one exists.
+- Be encouraging but realistic. Never guarantee an outcome, a timeline, a
+  job, or a salary figure.
+- Never invent salary figures, market data, employment statistics, or
+  qualifications beyond what's given to you here.
+- Recommend one clear next step where the question calls for it.
+- Keep responses concise and scannable. Avoid large unbroken paragraphs.
+- Where it genuinely helps, structure your response using these exact
+  section labels, each alone on its own line, in this order:
+
+RECOMMENDATION
+WHY IT MATTERS
+OPTIONS
+YOUR NEXT MOVE
+
+  Only include a section if it adds something real — never pad a short
+  answer with all four just to follow the format, and for a quick factual
+  question a plain conversational reply without any labels is often the
+  better answer. Use judgement.
+- If a detail below is "${NOT_SET}", say so honestly or ask for it rather
+  than assuming a value.
 
 =========================
 USER PROFILE
@@ -408,6 +466,19 @@ USER PROFILE
 Name: ${profile.full_name || "User"}
 Current Role: ${profile.current_role || NOT_SET}
 Target Role: ${profile.target_role || NOT_SET}
+Current Salary (their own stated figure, not verified market data): ${profile.current_salary ?? NOT_SET}
+Target Salary (their own stated figure, not verified market data): ${profile.target_salary ?? NOT_SET}
+Experience in current field: ${experience}
+Confirmed skills: ${skills}
+Target timeframe: ${timeframe}
+${priority ? `Chosen priority after a past salary/role trade-off: ${SALARY_PRIORITY_LABELS[priority]}` : ""}
+
+=========================
+CURRENT ROADMAP
+=========================
+
+${roadmapBlock}
+Total estimated journey: ${estimatedJourney}
 
 =========================
 TODAY'S MISSION

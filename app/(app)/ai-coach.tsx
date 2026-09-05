@@ -1,35 +1,37 @@
-import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
-
-import { useProfile } from "../../hooks/useProfile";
-
-import { getAIContext } from "../../services/aiContextService";
 
 import Button from "../../components/ui/Button";
 
 import ChatBubble from "../../components/ChatBubble";
 import ChatInput from "../../components/ChatInput";
 import TypingIndicator from "../../components/TypingIndicator";
+import CoachHeader from "../../components/coach/CoachHeader";
+import CurrentFocusCard from "../../components/coach/CurrentFocusCard";
+import SuggestedQuestions from "../../components/coach/SuggestedQuestions";
+
+import { useProfile } from "../../hooks/useProfile";
+
+import { buildSuggestedQuestions } from "../../services/coachSuggestionService";
+import { getAIContext } from "../../services/aiContextService";
+import { askAI, isAIFailureReply } from "../../services/openaiService";
 
 import { Colors } from "../../constants/theme";
-import { askAI } from "../../services/openaiService";
+import { AIContext } from "../../types/ai";
 
 type Message = {
   text: string;
   isUser: boolean;
-};
 
-/** "a Nurse", "an Engineer" — picks the article from the role's first letter. */
-function article(role: string): string {
-  return /^[aeiou]/i.test(role) ? "an" : "a";
-}
+  /** True only for a message that failed to reach/return from the AI. */
+  failed?: boolean;
+};
 
 export default function AICoachScreen() {
   // Fetches independently rather than relying on an ancestor screen (e.g. the
@@ -37,14 +39,44 @@ export default function AICoachScreen() {
   // reload onto this screen renders the welcome message with blank fields.
   const { userData, error, reloadProfile } = useProfile();
 
-  const { mission } = useLocalSearchParams<{
+  const { mission: missionParam } = useLocalSearchParams<{
     mission?: string;
   }>();
 
-  const welcomeMessage = mission
+  // Refetched once per screen focus rather than per message — sendMessage
+  // reuses this same context object instead of re-fetching the profile,
+  // progress and roadmap peek on every single question. Refreshing on focus
+  // (not just on first mount) matters because expo-router's Tabs keep this
+  // screen mounted in the background — without this, editing Profile in
+  // another tab and returning here would keep showing the stale pre-edit
+  // milestone/mission. Never triggers roadmap generation: getAIContext only
+  // ever reads an already-cached roadmap (see aiContextService/findCachedRoadmap).
+  const [context, setContext] = useState<AIContext | null>(null);
+  const [contextLoading, setContextLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      setContextLoading(true);
+
+      getAIContext().then((loaded) => {
+        if (active) {
+          setContext(loaded);
+          setContextLoading(false);
+        }
+      });
+
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
+  const welcomeMessage = missionParam
     ? `🎯 Today's Mission
 
-${mission}
+${missionParam}
 
 I'll help you complete today's mission.
 
@@ -56,56 +88,50 @@ I couldn't load your profile just now, so I don't have your career details
 handy. You can still ask me anything, or retry below.`
       : `Hi ${userData.name || "there"} 👋
 
-I'm your Velyqo AI Career Coach.
-
-I know you're currently ${article(userData.currentRole)} ${userData.currentRole}
-and you're aiming to become ${article(userData.targetRole)} ${userData.targetRole}.
-
-How can I help you today?`;
+I'm your Velyqo Career Coach. How can I help today?`;
 
   const [messages, setMessages] = useState<Message[]>([]);
-
   const [loading, setLoading] = useState(false);
 
   const sendMessage = async (message: string) => {
-    setMessages((prev) => [
-      ...prev,
-      {
-        text: message,
-        isUser: true,
-      },
-    ]);
-
+    setMessages((prev) => [...prev, { text: message, isUser: true }]);
     setLoading(true);
 
-    const context = await getAIContext();
-
-    const reply = await askAI({
-      message,
-      context,
-    });
+    const reply = await askAI({ message, context });
 
     setLoading(false);
-
     setMessages((prev) => [
       ...prev,
-      {
-        text: reply,
-        isUser: false,
-      },
+      { text: reply, isUser: false, failed: isAIFailureReply(reply) },
     ]);
   };
 
+  const retry = (originalMessage: string) => {
+    sendMessage(originalMessage);
+  };
+
+  const hasRoadmap = Boolean(context?.roadmap && context.roadmap.steps.length > 0);
+  const suggestedQuestions = buildSuggestedQuestions(context, Boolean(missionParam));
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>🤖 AI Coach</Text>
-      </View>
+      <CoachHeader
+        currentRole={userData.currentRole}
+        targetRole={userData.targetRole}
+      />
 
       <ScrollView
         style={styles.chat}
         contentContainerStyle={styles.chatContent}
       >
+        <CurrentFocusCard
+          loading={contextLoading}
+          hasRoadmap={hasRoadmap}
+          missionTitle={context?.mission.title ?? ""}
+          estimatedJourney={context?.roadmap?.estimatedJourney ?? null}
+          onViewJourney={() => router.push("/timeline")}
+        />
+
         <ChatBubble message={welcomeMessage} isUser={false} />
 
         {error && (
@@ -114,19 +140,39 @@ How can I help you today?`;
           </View>
         )}
 
+        {messages.length === 0 && suggestedQuestions.length > 0 && (
+          <SuggestedQuestions
+            questions={suggestedQuestions}
+            onSelect={sendMessage}
+            disabled={loading}
+          />
+        )}
+
         {messages.map((msg, index) => (
-          <ChatBubble key={index} message={msg.text} isUser={msg.isUser} />
+          <ChatBubble
+            key={index}
+            message={msg.text}
+            isUser={msg.isUser}
+            isError={msg.failed}
+            onRetry={
+              msg.failed
+                ? () => retry(messages[index - 1]?.text ?? "")
+                : undefined
+            }
+          />
         ))}
 
         {loading && <TypingIndicator />}
       </ScrollView>
 
-      <Button
-        title="✅ Complete Mission"
-        onPress={() => router.replace("/mission-complete")}
-      />
+      {missionParam && (
+        <Button
+          title="✅ Complete Mission"
+          onPress={() => router.replace("/mission-complete")}
+        />
+      )}
 
-      <ChatInput onSend={sendMessage} />
+      <ChatInput onSend={sendMessage} disabled={loading} />
     </SafeAreaView>
   );
 }
@@ -135,23 +181,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-
-  title: {
-    color: Colors.text,
-    fontSize: 22,
-    fontWeight: "700",
   },
 
   chat: {

@@ -7,6 +7,20 @@ interface AskAIRequest {
   context: AIContext | null;
 }
 
+/** The handful of hardcoded strings askAI itself returns when the request
+ * failed — askAI never throws, so this is how a caller distinguishes a real
+ * failure (worth offering a retry for) from a genuine reply, without askAI
+ * needing to change its return shape. */
+const FAILURE_REPLIES = [
+  "Sorry, I couldn't reach your AI Career Coach right now. Please try again in a moment.",
+  "The AI Coach didn't return a response.",
+  "Something went wrong while contacting your AI Career Coach.",
+];
+
+export function isAIFailureReply(reply: string): boolean {
+  return FAILURE_REPLIES.includes(reply);
+}
+
 export async function askAI({
   message,
   context,

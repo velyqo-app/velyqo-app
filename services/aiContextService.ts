@@ -1,5 +1,5 @@
 import { UserData } from "../context/UserContext";
-import { findCachedRoadmap } from "../hooks/useRoadmap";
+import { findCachedRoadmap, getStoredPriority } from "../hooks/useRoadmap";
 import { AIContext } from "../types/ai";
 import { StartingSituation } from "../types/careerContext";
 import { JournalEntry } from "../types/journal";
@@ -83,13 +83,18 @@ export async function getAIContext(): Promise<AIContext | null> {
 
   const resolvedProfile = profile as Profile;
 
+  const lookupInput = toRoadmapLookupInput(resolvedProfile, user.id);
+
   // Same authoritative source as Dashboard's Today's Mission: a read-only
   // peek at an already-cached roadmap, never a generation trigger. Tier 1
   // (real next step) when one exists, Tier 2 (deterministic fallback)
   // otherwise — so the AI's own context always matches what the user sees.
-  const roadmap = await findCachedRoadmap(
-    toRoadmapLookupInput(resolvedProfile, user.id),
-  );
+  // getStoredPriority is the same read-only peek Profile uses to display a
+  // resolved Destination Decision — never triggers the conflict check itself.
+  const [roadmap, priority] = await Promise.all([
+    findCachedRoadmap(lookupInput),
+    getStoredPriority(lookupInput),
+  ]);
 
   const mission =
     roadmap && roadmap.steps.length > 0
@@ -110,5 +115,9 @@ export async function getAIContext(): Promise<AIContext | null> {
     momentum: getMomentum(resolvedProgress.current_streak),
 
     journal: (journal ?? []) as JournalEntry[],
+
+    roadmap,
+
+    priority,
   };
 }

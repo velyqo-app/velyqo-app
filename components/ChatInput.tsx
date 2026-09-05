@@ -1,21 +1,27 @@
 import { useState } from "react";
 import {
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+
+import { Colors, Radius } from "../constants/theme";
 
 type Props = {
   onSend: (message: string) => void;
+
+  /** True while a request is already in flight — prevents a second message
+   * from being sent before the first one resolves. */
+  disabled?: boolean;
 };
 
-export default function ChatInput({ onSend }: Props) {
+export default function ChatInput({ onSend, disabled }: Props) {
   const [message, setMessage] = useState("");
 
   const send = () => {
-    if (!message.trim()) return;
+    if (!message.trim() || disabled) return;
 
     onSend(message);
 
@@ -25,14 +31,24 @@ export default function ChatInput({ onSend }: Props) {
   return (
     <View style={styles.container}>
       <TextInput
-        placeholder="Ask your AI Career Coach..."
-        placeholderTextColor="#94A3B8"
+        placeholder="Ask your Career Coach..."
+        placeholderTextColor={Colors.subtext}
         style={styles.input}
         value={message}
         onChangeText={setMessage}
+        multiline
+        editable={!disabled}
       />
 
-      <TouchableOpacity style={styles.button} onPress={send}>
+      <TouchableOpacity
+        style={[
+          styles.button,
+          (disabled || !message.trim()) && styles.buttonDisabled,
+        ]}
+        onPress={send}
+        disabled={disabled || !message.trim()}
+        activeOpacity={0.8}
+      >
         <Text style={styles.buttonText}>Send</Text>
       </TouchableOpacity>
     </View>
@@ -42,28 +58,42 @@ export default function ChatInput({ onSend }: Props) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
-    padding: 16,
-    backgroundColor: "#0B1120",
+    alignItems: "flex-end",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: Colors.background,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
   },
 
   input: {
     flex: 1,
-    backgroundColor: "#1E293B",
-    color: "#FFFFFF",
+    backgroundColor: Colors.card,
+    color: Colors.text,
+    fontSize: 16,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingVertical: 12,
+    borderRadius: Radius.lg,
     marginRight: 12,
+    maxHeight: 120,
   },
 
   button: {
-    backgroundColor: "#7C3AED",
+    backgroundColor: Colors.primary,
     justifyContent: "center",
-    paddingHorizontal: 18,
-    borderRadius: 12,
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: Radius.lg,
+  },
+
+  buttonDisabled: {
+    opacity: 0.5,
   },
 
   buttonText: {
-    color: "#FFFFFF",
+    color: Colors.text,
     fontWeight: "700",
+    fontSize: 15,
   },
 });
