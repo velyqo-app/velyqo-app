@@ -1,10 +1,11 @@
 import { router } from "expo-router";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useProfile } from "../../hooks/useProfile";
 
 import {
   Alert,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -16,12 +17,36 @@ import { Colors } from "../../constants/theme";
 import { UserContext } from "../../context/UserContext";
 import { signOut } from "../../services/authService";
 
+import CareerBlueprintCard from "../../components/profile/CareerBlueprintCard";
+import ProfileLinkRow from "../../components/profile/ProfileLinkRow";
+
+import { getStoredPriority } from "../../hooks/useRoadmap";
+import { SalaryPriority } from "../../types/careerContext";
+
 export default function ProfileScreen() {
   const { userData } = useProfile();
 
   const { clearUserData } = useContext(UserContext);
 
   const [signingOut, setSigningOut] = useState(false);
+
+  // Read-only, local-only lookup — never triggers the salary-conflict check
+  // itself, just reflects a decision already made (if any) on Journey.
+  const [priority, setPriority] = useState<SalaryPriority | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    getStoredPriority(userData).then((result) => {
+      if (active) {
+        setPriority(result);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [userData]);
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -47,42 +72,43 @@ export default function ProfileScreen() {
         <Text style={styles.headerTitle}>My Profile</Text>
       </View>
 
-      <View style={styles.content}>
-        <Card>
-          <Text style={styles.name}>{userData.name || "Your Name"}</Text>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.name}>{userData.name || "Your Name"}</Text>
 
-          <Text style={styles.goal}>
-            {userData.targetRole || "Target Role"}
-          </Text>
-        </Card>
+        <CareerBlueprintCard
+          currentRole={userData.currentRole}
+          currentSalary={userData.currentSalary}
+          experienceLevel={userData.experienceLevel}
+          skills={userData.skills}
+          targetRole={userData.targetRole}
+          targetSalary={userData.targetSalary}
+          targetTimeframe={userData.targetTimeframe}
+          priority={priority}
+        />
 
-        <Card>
-          <Text style={styles.sectionTitle}>Current Role</Text>
+        <ProfileLinkRow
+          icon="📖"
+          title="Career Journal"
+          subtitle="Your milestones and completed missions"
+          onPress={() => router.push("/career-journal")}
+        />
 
-          <Text style={styles.value}>{userData.currentRole || "Not Set"}</Text>
+        <ProfileLinkRow
+          icon="⚙️"
+          title="Preferences"
+          subtitle="Coming soon"
+        />
 
-          <View style={styles.divider} />
+        <ProfileLinkRow
+          icon="❓"
+          title="Help & Support"
+          subtitle="Coming soon"
+        />
 
-          <Text style={styles.sectionTitle}>Current Salary</Text>
-
-          <Text style={styles.value}>
-            {userData.currentSalary
-              ? `£${Number(userData.currentSalary).toLocaleString()}`
-              : "Not Set"}
-          </Text>
-        </Card>
-
-        <Card>
-          <Text style={styles.sectionTitle}>Career Goal</Text>
-
-          <Text style={styles.value}>{userData.goal || "Not Set"}</Text>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.sectionTitle}>Country</Text>
-
-          <Text style={styles.value}>{userData.country || "Not Set"}</Text>
-        </Card>
+        <Text style={styles.sectionLabel}>ACCOUNT</Text>
 
         <Card>
           <Button
@@ -92,7 +118,7 @@ export default function ProfileScreen() {
             onPress={handleSignOut}
           />
         </Card>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -122,6 +148,7 @@ const styles = StyleSheet.create({
 
   content: {
     padding: 20,
+    paddingBottom: 40,
   },
 
   name: {
@@ -129,30 +156,15 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "800",
     textAlign: "center",
+    marginBottom: 20,
   },
 
-  goal: {
-    color: Colors.primary,
-    fontSize: 18,
-    textAlign: "center",
-    marginTop: 8,
-  },
-
-  sectionTitle: {
+  sectionLabel: {
     color: Colors.subtext,
-    fontSize: 14,
-    marginBottom: 6,
-  },
-
-  value: {
-    color: Colors.text,
-    fontSize: 18,
-    fontWeight: "600",
-  },
-
-  divider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginVertical: 18,
+    fontSize: 12,
+    letterSpacing: 1.2,
+    fontWeight: "800",
+    marginBottom: 10,
+    marginTop: 4,
   },
 });

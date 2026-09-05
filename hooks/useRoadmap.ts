@@ -245,6 +245,37 @@ export async function findCachedRoadmap(
     : null;
 }
 
+/**
+ * Read-only peek at the priority the user chose the last time a salary
+ * conflict was resolved (Destination Decision), or null when no decision has
+ * ever been stored for this target — i.e. no verified conflict was found, so
+ * the question was never asked. Never triggers the conflict check itself;
+ * Profile uses this purely for display, the same way findCachedRoadmap
+ * reads roadmaps without ever building one.
+ */
+export async function getStoredPriority(
+  userData: UserData,
+): Promise<SalaryPriority | null> {
+  const { userId, targetRole, targetOccupationId, targetSalary, country } =
+    userData;
+
+  if (!targetRole.trim()) {
+    return null;
+  }
+
+  const decision = await readJson<StoredDecision>(
+    decisionCacheKey(
+      targetRole,
+      targetOccupationId,
+      Number(targetSalary) || null,
+      toCountryCode(country),
+      userId,
+    ),
+  );
+
+  return decision?.priority ?? null;
+}
+
 export interface DestinationComparison {
   requestedTitle: string;
   requestedOccupationId: string | null;
