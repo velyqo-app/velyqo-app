@@ -3,6 +3,11 @@ export const Colors = {
 
   card: "#1E293B",
 
+  /** A step lighter than `card` — reserved for the handful of surfaces that
+   * should read as the most important thing on screen (Journey's current
+   * milestone, the target-destination card), never used app-wide. */
+  cardElevated: "#243147",
+
   primary: "#7C3AED",
 
   success: "#10B981",
@@ -16,6 +21,20 @@ export const Colors = {
   subtext: "#94A3B8",
 
   border: "#334155",
+
+  /** A brighter, more visible edge for the same handful of emphasized
+   * surfaces `cardElevated` is used on — never a substitute for `border`
+   * elsewhere. */
+  borderElevated: "#3D4F72",
+
+  /** Low-opacity white, for the single restrained gloss/highlight sweep
+   * premium surfaces get — never a full white fill, never used more than
+   * once per screen region. */
+  highlight: "rgba(255,255,255,0.06)",
+
+  /** `primary` at low opacity, for the soft glow behind the current-position
+   * marker only. */
+  glow: "rgba(124,58,237,0.35)",
 };
 
 export const Spacing = {

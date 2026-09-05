@@ -79,7 +79,7 @@ export interface RoadmapInput {
   destinationOverride?: DestinationOverride | null;
 }
 
-interface MonthRange {
+export interface MonthRange {
   min: number;
   max: number;
 }
@@ -97,8 +97,12 @@ const MONTHS_PER_UNIT: Record<string, number> = {
  * Parses a step's free-text duration (e.g. "3-6 months", "1-2 years") into a
  * month range. Returns null for anything that doesn't match the shape the
  * prompt asks for, rather than guessing at a malformed value.
+ *
+ * Exported so journeyTimelineService can anchor the Journey screen's
+ * milestone nodes to calendar dates using this exact same parsing — never a
+ * second, competing implementation of the same free-text format.
  */
-function parseDurationRange(text: string | null): MonthRange | null {
+export function parseDurationRange(text: string | null): MonthRange | null {
   if (!text) {
     return null;
   }

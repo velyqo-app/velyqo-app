@@ -1,25 +1,32 @@
+import { useCallback, useState } from "react";
 import {
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import Animated, {
+  SharedValue,
+  useAnimatedScrollHandler,
+  useSharedValue,
+} from "react-native-reanimated";
 
 import DestinationDecision from "../../components/DestinationDecision";
-import RoadmapStep from "../../components/RoadmapStep";
+import JourneyPath from "../../components/journey/JourneyPath";
+import StickyDateIndicator from "../../components/journey/StickyDateIndicator";
 import Card from "../../components/ui/Card";
 import LoadingScreen from "../../components/ui/LoadingScreen";
-import { Colors } from "../../constants/theme";
+import { Colors, Radius } from "../../constants/theme";
 import { useRoadmap } from "../../hooks/useRoadmap";
-import { TARGET_TIMEFRAME_LABELS } from "../../types/careerContext";
+import { formatJourneyHeadline } from "../../services/journeyEstimateFormat";
 import {
-  Roadmap,
-  RoadmapEndpoint,
-  RoadmapJourneyEstimate,
-  RoadmapLimitation,
-} from "../../types/roadmap";
+  JourneyTimeline,
+  buildJourneyTimeline,
+  describeTimelineNode,
+} from "../../services/journeyTimelineService";
+import { TARGET_TIMEFRAME_LABELS } from "../../types/careerContext";
+import { Roadmap, RoadmapLimitation } from "../../types/roadmap";
 
 const LIMITATION_TEXT: Record<RoadmapLimitation, string> = {
   CURRENT_ROLE_NOT_IN_CATALOGUE:
@@ -37,91 +44,27 @@ const LIMITATION_TEXT: Record<RoadmapLimitation, string> = {
     "We couldn't build detailed steps for this transition right now. Please try again shortly.",
 };
 
-function formatMoney(currency: string, amount: number) {
-  return `${currency} ${amount.toLocaleString()}`;
-}
-
 /** Lowercases only a label's leading character, so a value written for
  * standalone display (an onboarding option, "Target timeframe: X") also
- * reads naturally embedded mid-sentence — without a per-label special
- * case, and without altering labels that don't start with a letter (e.g.
- * "1–2 years"). */
+ * reads naturally embedded mid-sentence. */
 function decapitalize(text: string): string {
   return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
-/**
- * A defensive display sanity bound, not verified market data and not a
- * claim that any real career transition necessarily completes within 5
- * years. A maximum beyond this is shown open-ended ("5+ years") rather
- * than silently shortened — a genuinely longer transition, honestly
- * implied by the roadmap's own steps, is never misrepresented as
- * achievable within the ceiling.
- */
-const CEILING_MONTHS = 60;
-const CEILING_YEARS = CEILING_MONTHS / 12;
-
-function pluralize(value: number, unit: string): string {
-  return `${value} ${unit}${value === 1 ? "" : "s"}`;
-}
-
-/** Expresses a single bound in whichever unit it naturally belongs to,
- * rather than always converting to years once the range as a whole is
- * "in years" — see formatJourneyHeadline. */
-function formatBound(months: number): { value: number; unit: "month" | "year" } {
-  return months < 12
-    ? { value: months, unit: "month" }
-    : { value: Math.round(months / 12), unit: "year" };
-}
-
-/**
- * "3-6 months" for short ranges; "2-3 years" once both bounds are
- * naturally years; "3 months–2 years" when they're not — never rounding a
- * genuinely sub-year minimum up into "1 year" just because the maximum
- * crossed into years. Beyond CEILING_MONTHS, the maximum is shown
- * open-ended rather than silently capped to a shorter, wrong number.
- */
-function formatJourneyHeadline(minMonths: number, maxMonths: number): string {
-  if (maxMonths < 18) {
-    return minMonths === maxMonths
-      ? pluralize(minMonths, "month")
-      : `${minMonths}-${maxMonths} months`;
-  }
-
-  const openEnded = maxMonths > CEILING_MONTHS;
-  const min = formatBound(minMonths);
-
-  if (openEnded) {
-    return min.unit === "year"
-      ? min.value >= CEILING_YEARS
-        ? `${CEILING_YEARS}+ years`
-        : `${min.value}-${CEILING_YEARS}+ years`
-      : `${pluralize(minMonths, "month")}–${CEILING_YEARS}+ years`;
-  }
-
-  const max = formatBound(maxMonths);
-
-  if (min.unit === max.unit) {
-    return min.value === max.value
-      ? pluralize(min.value, min.unit)
-      : `${min.value}-${max.value} ${max.unit}s`;
-  }
-
-  // Mixed units — a sub-year minimum with a multi-year maximum.
-  return `${pluralize(minMonths, "month")}–${pluralize(max.value, "year")}`;
-}
-
-function JourneyEstimateCard({
-  estimate,
+function EstimateHeaderCard({
+  roadmap,
   requestedTimeframe,
 }: {
-  estimate: RoadmapJourneyEstimate;
-  /** The user's own stated preference, or null when they never set one —
-   * never invented, and never rendered as though it were a guarantee. */
+  roadmap: Roadmap;
   requestedTimeframe: string | null;
 }) {
-  const { minMonths, maxMonths, stepsCounted, stepsTotal } = estimate;
+  const estimate = roadmap.estimatedJourney;
 
+  if (!estimate) {
+    return null;
+  }
+
+  const { minMonths, maxMonths, stepsCounted, stepsTotal } = estimate;
   const partial = stepsCounted < stepsTotal;
 
   return (
@@ -153,75 +96,35 @@ function JourneyEstimateCard({
   );
 }
 
-function EndpointSalary({
-  label,
-  endpoint,
-}: {
-  label: string;
-  endpoint: RoadmapEndpoint;
-}) {
-  // Prefer the currency derived from the user's own country; the market
-  // band's currency is only a fallback for the rare case that's unset but a
-  // band still somehow exists.
-  const statedCurrency = endpoint.currency ?? endpoint.salary?.currency ?? null;
-
-  return (
-    <View style={styles.endpointBlock}>
-      <Text style={styles.endpointLabel}>{label}</Text>
-
-      {/* The user's own figure is the primary, most prominent line — it must
-          never be displaced by or read as secondary to market data. */}
-      {endpoint.statedSalary !== null ? (
-        <Text style={styles.statedSalary}>
-          {statedCurrency
-            ? formatMoney(statedCurrency, endpoint.statedSalary)
-            : endpoint.statedSalary.toLocaleString()}
-        </Text>
-      ) : (
-        <Text style={styles.notProvided}>Not provided</Text>
-      )}
-
-      <View style={styles.marketDivider} />
-
-      <Text style={styles.marketLabel}>VERIFIED MARKET RANGE</Text>
-
-      {endpoint.salary ? (
-        <>
-          <Text style={styles.range}>
-            {formatMoney(endpoint.salary.currency, endpoint.salary.low)} –{" "}
-            {formatMoney(endpoint.salary.currency, endpoint.salary.high)}
-          </Text>
-
-          <Text style={styles.provenance}>
-            {endpoint.salary.dataType.toLowerCase()} data
-            {endpoint.salary.source ? ` · ${endpoint.salary.source}` : ""} ·{" "}
-            {endpoint.salary.confidence}% confidence
-          </Text>
-        </>
-      ) : (
-        <Text style={styles.unavailable}>
-          No verified market data available for this role yet.
-        </Text>
-      )}
-    </View>
-  );
-}
-
 /**
- * Renders one complete roadmap. Used twice, unchanged, when the user chose
- * "show me both pathways" — each destination gets the identical treatment,
- * neither is visually privileged over the other. `requestedTimeframe` is
- * the same single user preference either way, not per-destination.
+ * One complete roadmap rendered as a journey — used twice, unchanged, when
+ * the user chose "show me both pathways." `onLabelChange` reports whichever
+ * node this specific pathway's scroll position is currently near, so the
+ * screen-level sticky pill can reflect either one.
  */
-function RoadmapView({
+function JourneyView({
   roadmap,
-  onRetry,
   requestedTimeframe,
+  onRetry,
+  scrollY,
+  onLabelChange,
 }: {
   roadmap: Roadmap;
-  onRetry: () => void;
   requestedTimeframe: string | null;
+  onRetry: () => void;
+  scrollY: SharedValue<number>;
+  onLabelChange: (label: string | null) => void;
 }) {
+  const timeline: JourneyTimeline = buildJourneyTimeline(roadmap);
+
+  const handleActiveIndexChange = useCallback(
+    (index: number) => {
+      onLabelChange(describeTimelineNode(timeline, index));
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [roadmap.generatedAt, roadmap.target.title],
+  );
+
   return (
     <>
       {roadmap.destinationResolution && (
@@ -242,18 +145,10 @@ function RoadmapView({
         </Card>
       )}
 
-      <Text style={styles.currentRole}>{roadmap.current.title}</Text>
-
-      <Text style={styles.arrow}>↓</Text>
-
-      <Text style={styles.targetRole}>{roadmap.target.title}</Text>
-
-      {roadmap.estimatedJourney ? (
-        <JourneyEstimateCard
-          estimate={roadmap.estimatedJourney}
-          requestedTimeframe={requestedTimeframe}
-        />
-      ) : null}
+      <EstimateHeaderCard
+        roadmap={roadmap}
+        requestedTimeframe={requestedTimeframe}
+      />
 
       {roadmap.summary ? (
         <Card>
@@ -262,38 +157,6 @@ function RoadmapView({
           <Text style={styles.summary}>{roadmap.summary}</Text>
         </Card>
       ) : null}
-
-      {roadmap.transferableSkills.length > 0 && (
-        <Card>
-          <Text style={styles.cardTitle}>What you already bring</Text>
-
-          {roadmap.transferableSkills.map((skill) => (
-            <Text key={skill} style={styles.skill}>
-              ✓ {skill}
-            </Text>
-          ))}
-        </Card>
-      )}
-
-      {roadmap.nextAction ? (
-        <Card>
-          <Text style={styles.cardTitle}>Recommended next step</Text>
-
-          <Text style={styles.nextAction}>{roadmap.nextAction}</Text>
-        </Card>
-      ) : null}
-
-      <Card>
-        <Text style={styles.cardTitle}>Salary</Text>
-
-        <EndpointSalary label="CURRENT ROLE" endpoint={roadmap.current} />
-
-        <View style={styles.divider} />
-
-        <EndpointSalary label="TARGET ROLE" endpoint={roadmap.target} />
-      </Card>
-
-      <Text style={styles.section}>Career Roadmap</Text>
 
       {roadmap.steps.length === 0 ? (
         <Card>
@@ -309,15 +172,13 @@ function RoadmapView({
           )}
         </Card>
       ) : (
-        roadmap.steps.map((step, index) => (
-          <View key={step.id} style={styles.stepContainer}>
-            <RoadmapStep index={index} step={step} />
-
-            {index < roadmap.steps.length - 1 && (
-              <Text style={styles.arrow}>↓</Text>
-            )}
-          </View>
-        ))
+        <JourneyPath
+          key={roadmap.generatedAt ?? roadmap.target.title}
+          roadmap={roadmap}
+          timeline={timeline}
+          scrollY={scrollY}
+          onActiveIndexChange={handleActiveIndexChange}
+        />
       )}
 
       {roadmap.alternativeCareers.length > 0 && (
@@ -387,6 +248,14 @@ export default function TimelineScreen() {
     targetTimeframe,
   } = useRoadmap();
 
+  const [activeLabel, setActiveLabel] = useState<string | null>(null);
+
+  const scrollY = useSharedValue(0);
+
+  const scrollHandler = useAnimatedScrollHandler((event) => {
+    scrollY.value = event.contentOffset.y;
+  });
+
   // Never invented — absent whenever the user hasn't set one, exactly as
   // stored, so the UI never displays a preference they didn't state.
   const requestedTimeframe = targetTimeframe
@@ -400,70 +269,87 @@ export default function TimelineScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Career Timeline</Text>
+        <Text style={styles.headerTitle}>Your Journey</Text>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {profileError ? (
-          <Card>
-            <Text style={styles.emptyTitle}>
-              We couldn&apos;t load your profile
-            </Text>
-
-            <Text style={styles.emptyText}>Please try again.</Text>
-
-            <TouchableOpacity style={styles.retryButton} onPress={retryProfile}>
-              <Text style={styles.retryText}>Retry</Text>
-            </TouchableOpacity>
-          </Card>
-        ) : needsDecision && comparison ? (
-          <DestinationDecision
-            comparison={comparison}
-            onChoose={chooseDestination}
-            submitting={choosingDestination}
-          />
-        ) : !roadmap ? (
-          <Card>
-            <Text style={styles.emptyTitle}>No roadmap yet</Text>
-
-            <Text style={styles.emptyText}>
-              Add a target role to your profile and your career roadmap will
-              appear here.
-            </Text>
-          </Card>
-        ) : (
-          <>
-            {roadmap.destinationResolution && (
-              <TouchableOpacity onPress={reconsiderDestination}>
-                <Text style={styles.reconsiderLink}>Reconsider this choice</Text>
-              </TouchableOpacity>
-            )}
-
-            <RoadmapView
-              roadmap={roadmap}
-              onRetry={retryGeneration}
-              requestedTimeframe={requestedTimeframe}
-            />
-
-            {alternateRoadmap && (
-              <>
-                <View style={styles.pathwayDivider} />
-
-                <Text style={styles.section}>The alternative pathway</Text>
-
-                <RoadmapView
-                  roadmap={alternateRoadmap}
-                  onRetry={retryGeneration}
-                  requestedTimeframe={requestedTimeframe}
-                />
-              </>
-            )}
-          </>
+      <View style={styles.scrollWrapper}>
+        {!profileError && !needsDecision && roadmap && (
+          <StickyDateIndicator label={activeLabel} />
         )}
-      </ScrollView>
+
+        <Animated.ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+        >
+          {profileError ? (
+            <Card>
+              <Text style={styles.emptyTitle}>
+                We couldn&apos;t load your profile
+              </Text>
+
+              <Text style={styles.emptyText}>Please try again.</Text>
+
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={retryProfile}
+              >
+                <Text style={styles.retryText}>Retry</Text>
+              </TouchableOpacity>
+            </Card>
+          ) : needsDecision && comparison ? (
+            <DestinationDecision
+              comparison={comparison}
+              onChoose={chooseDestination}
+              submitting={choosingDestination}
+            />
+          ) : !roadmap ? (
+            <Card>
+              <Text style={styles.emptyTitle}>No roadmap yet</Text>
+
+              <Text style={styles.emptyText}>
+                Add a target role to your profile and your career roadmap
+                will appear here.
+              </Text>
+            </Card>
+          ) : (
+            <>
+              {roadmap.destinationResolution && (
+                <TouchableOpacity onPress={reconsiderDestination}>
+                  <Text style={styles.reconsiderLink}>
+                    Reconsider this choice
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <JourneyView
+                roadmap={roadmap}
+                onRetry={retryGeneration}
+                requestedTimeframe={requestedTimeframe}
+                scrollY={scrollY}
+                onLabelChange={setActiveLabel}
+              />
+
+              {alternateRoadmap && (
+                <>
+                  <View style={styles.pathwayDivider} />
+
+                  <Text style={styles.section}>The alternative pathway</Text>
+
+                  <JourneyView
+                    roadmap={alternateRoadmap}
+                    onRetry={retryGeneration}
+                    requestedTimeframe={requestedTimeframe}
+                    scrollY={scrollY}
+                    onLabelChange={setActiveLabel}
+                  />
+                </>
+              )}
+            </>
+          )}
+        </Animated.ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -491,32 +377,14 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  scrollWrapper: {
+    flex: 1,
+    position: "relative",
+  },
+
   content: {
     padding: 20,
     paddingBottom: 40,
-  },
-
-  currentRole: {
-    color: Colors.subtext,
-    fontSize: 22,
-    fontWeight: "700",
-    textAlign: "center",
-    marginTop: 20,
-  },
-
-  targetRole: {
-    color: Colors.success,
-    fontSize: 24,
-    fontWeight: "700",
-    textAlign: "center",
-    marginBottom: 30,
-  },
-
-  arrow: {
-    color: Colors.primary,
-    fontSize: 28,
-    textAlign: "center",
-    marginVertical: 10,
   },
 
   cardTitle: {
@@ -524,12 +392,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
     marginBottom: 18,
-  },
-
-  nextAction: {
-    color: Colors.primary,
-    fontSize: 18,
-    fontWeight: "700",
   },
 
   requestedTimeframe: {
@@ -567,76 +429,6 @@ const styles = StyleSheet.create({
     lineHeight: 23,
   },
 
-  skill: {
-    color: Colors.text,
-    fontSize: 16,
-    marginBottom: 10,
-  },
-
-  endpointBlock: {
-    marginBottom: 4,
-  },
-
-  endpointLabel: {
-    color: Colors.subtext,
-    fontSize: 13,
-    letterSpacing: 1,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-
-  statedSalary: {
-    color: Colors.text,
-    fontSize: 26,
-    fontWeight: "800",
-  },
-
-  notProvided: {
-    color: Colors.subtext,
-    fontSize: 16,
-    fontStyle: "italic",
-  },
-
-  marketDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginTop: 16,
-    marginBottom: 12,
-  },
-
-  marketLabel: {
-    color: Colors.subtext,
-    fontSize: 12,
-    letterSpacing: 1,
-    fontWeight: "700",
-    marginBottom: 6,
-  },
-
-  range: {
-    color: Colors.success,
-    fontSize: 18,
-    fontWeight: "700",
-  },
-
-  provenance: {
-    color: Colors.subtext,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 6,
-  },
-
-  unavailable: {
-    color: Colors.subtext,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-
-  divider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginVertical: 18,
-  },
-
   section: {
     color: Colors.text,
     fontSize: 22,
@@ -645,8 +437,10 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
 
-  stepContainer: {
-    marginBottom: 10,
+  unavailable: {
+    color: Colors.subtext,
+    fontSize: 14,
+    lineHeight: 20,
   },
 
   limitation: {
@@ -724,7 +518,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.primary,
   },

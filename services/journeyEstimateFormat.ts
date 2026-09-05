@@ -1,13 +1,11 @@
 import { RoadmapJourneyEstimate } from "../types/roadmap";
 
 /**
- * Deliberately duplicated from app/(app)/timeline.tsx's private formatting
- * functions rather than imported — Home (Phase 2) must not modify Journey
- * (out of scope this phase), and this formatting was never exported. Keeping
- * the exact same ceiling/rounding rules here means Home and Journey can never
- * visually disagree about the same estimate, even though the source is
- * duplicated. When Journey is rebuilt (Phase 4), extract both call sites to
- * a single shared module instead of carrying this duplication forward.
+ * The single shared implementation of the journey-estimate headline, used by
+ * both Home (JourneySummaryCard) and Journey (timeline.tsx) — extracted here
+ * in Phase 4 so the two screens can never visually disagree about the same
+ * estimate. Previously this was duplicated (see git history); if you're
+ * tempted to add a second copy for a third call site, import this instead.
  */
 const CEILING_MONTHS = 60;
 const CEILING_YEARS = CEILING_MONTHS / 12;
