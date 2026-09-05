@@ -1,4 +1,3 @@
-import { router } from "expo-router";
 import {
   SafeAreaView,
   ScrollView,
@@ -401,13 +400,7 @@ export default function TimelineScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>← Career Brief</Text>
-        </TouchableOpacity>
-
         <Text style={styles.headerTitle}>Career Timeline</Text>
-
-        <View style={{ width: 90 }} />
       </View>
 
       <ScrollView
@@ -490,13 +483,6 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-  },
-
-  back: {
-    color: Colors.primary,
-    fontSize: 16,
-    fontWeight: "600",
-    width: 90,
   },
 
   headerTitle: {

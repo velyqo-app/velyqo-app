@@ -7,7 +7,6 @@ import {
   SafeAreaView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 
@@ -45,13 +44,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>← Career Brief</Text>
-        </TouchableOpacity>
-
         <Text style={styles.headerTitle}>My Profile</Text>
-
-        <View style={{ width: 90 }} />
       </View>
 
       <View style={styles.content}>
@@ -119,13 +112,6 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-  },
-
-  back: {
-    color: Colors.primary,
-    fontSize: 16,
-    fontWeight: "600",
-    width: 90,
   },
 
   headerTitle: {

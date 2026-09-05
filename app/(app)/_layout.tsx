@@ -1,7 +1,9 @@
-import { Redirect, Stack } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { Redirect, Tabs } from "expo-router";
 import { useEffect, useState } from "react";
 
 import LoadingScreen from "../../components/ui/LoadingScreen";
+import { Colors } from "../../constants/theme";
 import { supabase } from "../../lib/supabase";
 import { getSession } from "../../services/authService";
 import { getProfile } from "../../services/profileService";
@@ -91,11 +93,90 @@ export default function AppLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="dashboard" />
-      <Stack.Screen name="timeline" />
-      <Stack.Screen name="ai-coach" />
-      <Stack.Screen name="profile" />
-    </Stack>
+    <Tabs
+      initialRouteName="dashboard"
+      backBehavior="initialRoute"
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.subtext,
+        tabBarStyle: {
+          backgroundColor: Colors.card,
+          borderTopColor: Colors.border,
+        },
+      }}
+    >
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: "Home",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "home" : "home-outline"}
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="timeline"
+        options={{
+          title: "Journey",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "map" : "map-outline"}
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="ai-coach"
+        options={{
+          title: "Coach",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "chatbubble-ellipses" : "chatbubble-ellipses-outline"}
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "person" : "person-outline"}
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      {/* Shares the same navigator so it can be reached with router.push, but
+          never appears as a tab button (href: null) and hides the tab bar
+          chrome while open (tabBarStyle display: none) so it reads as a
+          pushed destination, not a fifth tab — Career Journal lives under
+          Profile, per product decision. */}
+      <Tabs.Screen
+        name="career-journal"
+        options={{ href: null, tabBarStyle: { display: "none" } }}
+      />
+
+      {/* Same treatment — reached by push from Home/Journey, never a tab. */}
+      <Tabs.Screen
+        name="mission-complete"
+        options={{ href: null, tabBarStyle: { display: "none" } }}
+      />
+    </Tabs>
   );
 }

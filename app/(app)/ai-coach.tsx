@@ -5,7 +5,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 
@@ -100,13 +99,7 @@ How can I help you today?`;
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>← Career Brief</Text>
-        </TouchableOpacity>
-
         <Text style={styles.title}>🤖 AI Coach</Text>
-
-        <View style={{ width: 100 }} />
       </View>
 
       <ScrollView
@@ -153,13 +146,6 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-  },
-
-  back: {
-    color: Colors.primary,
-    fontSize: 16,
-    fontWeight: "600",
-    width: 100,
   },
 
   title: {

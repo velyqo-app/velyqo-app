@@ -1,22 +1,79 @@
 import { router } from "expo-router";
-import { useContext } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { UserContext } from "../../context/UserContext";
-import { getIndicativeSalary } from "../../data/salaries";
 import { supabase } from "../../lib/supabase";
 import { getCurrentUser } from "../../services/authService";
+import { toCountryCode } from "../../services/countryService";
+import { loadSalary, resolveEndpoint } from "../../services/roadmapService";
 import {
   EDUCATION_LEVEL_LABELS,
   EXPERIENCE_LEVEL_LABELS,
   STARTING_SITUATION_LABELS,
   TARGET_TIMEFRAME_LABELS,
 } from "../../types/careerContext";
+import { RoadmapSalary } from "../../types/roadmap";
+
+function formatMoney(currency: string, amount: number) {
+  return `${currency} ${amount.toLocaleString()}`;
+}
 
 export default function SummaryScreen() {
   const { userData } = useContext(UserContext);
 
-  const roleInfo = getIndicativeSalary(userData.targetRole, userData.country);
+  // Same authoritative lookup Dashboard/Timeline use (resolveEndpoint +
+  // loadSalary against occupation_salary_bands) — never the retired seeded
+  // table, so the blueprint can never disagree with the rest of the app on
+  // this figure.
+  const [targetSalaryBand, setTargetSalaryBand] =
+    useState<RoadmapSalary | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadTargetSalary = async () => {
+      if (!userData.targetRole.trim()) {
+        if (active) {
+          setTargetSalaryBand(null);
+        }
+        return;
+      }
+
+      const occupation = await resolveEndpoint(
+        userData.targetRole,
+        userData.targetOccupationId,
+      );
+
+      const band = await loadSalary(
+        occupation?.id ?? null,
+        toCountryCode(userData.country),
+      );
+
+      if (active) {
+        setTargetSalaryBand(band);
+      }
+    };
+
+    loadTargetSalary();
+
+    return () => {
+      active = false;
+    };
+  }, [userData.targetRole, userData.targetOccupationId, userData.country]);
+
+  const statedCurrentSalary = userData.currentSalary
+    ? Number(userData.currentSalary)
+    : null;
+
+  const statedTargetSalary = userData.targetSalary
+    ? Number(userData.targetSalary)
+    : null;
+
+  const increase =
+    statedCurrentSalary !== null && statedTargetSalary !== null
+      ? statedTargetSalary - statedCurrentSalary
+      : null;
 
   const saveProfile = async () => {
     const session = await getCurrentUser();
@@ -122,30 +179,34 @@ export default function SummaryScreen() {
           : "Not provided"}
       </Text>
 
-      {roleInfo && (
+      {increase !== null ? (
+        <Text style={styles.item}>
+          Potential Increase:{" "}
+          {increase >= 0
+            ? `£${increase.toLocaleString()}`
+            : `-£${Math.abs(increase).toLocaleString()}`}
+        </Text>
+      ) : null}
+
+      <Text style={styles.item}>Verified Market Range</Text>
+
+      {targetSalaryBand ? (
         <>
           <Text style={styles.item}>
-            Average Salary: £{roleInfo.average.toLocaleString()}
+            {formatMoney(targetSalaryBand.currency, targetSalaryBand.low)} –{" "}
+            {formatMoney(targetSalaryBand.currency, targetSalaryBand.high)}
           </Text>
-
-          <Text style={styles.item}>
-            Salary Range: £{roleInfo.min.toLocaleString()} - £
-            {roleInfo.max.toLocaleString()}
-          </Text>
-
-          {userData.currentSalary ? (
-            <Text style={styles.item}>
-              Potential Increase: £
-              {(
-                roleInfo.average - Number(userData.currentSalary)
-              ).toLocaleString()}
-            </Text>
-          ) : null}
 
           <Text style={styles.provenance}>
-            Indicative UK market estimate, not a figure specific to you.
+            {targetSalaryBand.dataType.toLowerCase()} data
+            {targetSalaryBand.source ? ` · ${targetSalaryBand.source}` : ""} ·{" "}
+            {targetSalaryBand.confidence}% confidence
           </Text>
         </>
+      ) : (
+        <Text style={styles.provenance}>
+          No verified market data available for this role yet.
+        </Text>
       )}
 
       <TouchableOpacity style={styles.button} onPress={saveProfile}>
