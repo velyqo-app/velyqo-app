@@ -177,6 +177,12 @@ export default function AppLayout() {
         name="mission-complete"
         options={{ href: null, tabBarStyle: { display: "none" } }}
       />
+
+      {/* Same treatment — reached by push from Journey, never a tab. */}
+      <Tabs.Screen
+        name="career-gaps"
+        options={{ href: null, tabBarStyle: { display: "none" } }}
+      />
     </Tabs>
   );
 }

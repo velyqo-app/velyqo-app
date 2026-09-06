@@ -25,9 +25,23 @@ export default function DashboardScreen() {
   const goToJourney = () => router.push("/timeline");
 
   const startMission = () => {
+    // missionDescription/capabilityGapId/capabilityName are only added when
+    // Today's Mission is the Tier 0 capability mission — Coach re-derives
+    // its own title+description for the existing roadmap/generic mission
+    // pipeline (see ai-coach.tsx), so nothing else needs to change there.
+    const params: Record<string, string> = {
+      mission: careerBrief.mission.title,
+    };
+
+    if (careerBrief.capabilityGapId) {
+      params.missionDescription = careerBrief.mission.description;
+      params.capabilityGapId = careerBrief.capabilityGapId;
+      params.capabilityName = careerBrief.capabilityName ?? "";
+    }
+
     router.push({
       pathname: "/ai-coach",
-      params: { mission: careerBrief.mission.title },
+      params,
     });
   };
 

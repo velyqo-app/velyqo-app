@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   SafeAreaView,
@@ -282,6 +283,26 @@ export default function TimelineScreen() {
           onScroll={scrollHandler}
           scrollEventThrottle={16}
         >
+          {/* Minimal entry point only — Career Gap lives under Journey per
+              product decision, but this screen isn't being restructured for
+              it yet. The destination handles its own "no target role" state,
+              so this link doesn't need to duplicate that condition here. */}
+          <Card onPress={() => router.push("/career-gaps")}>
+            <View style={styles.gapEntryRow}>
+              <Text style={styles.gapEntryEmoji}>🎯</Text>
+
+              <View style={styles.gapEntryTextBlock}>
+                <Text style={styles.gapEntryTitle}>Capability Gaps</Text>
+
+                <Text style={styles.gapEntrySubtitle}>
+                  See what matters for your target role
+                </Text>
+              </View>
+
+              <Text style={styles.gapEntryChevron}>›</Text>
+            </View>
+          </Card>
+
           {profileError ? (
             <Card>
               <Text style={styles.emptyTitle}>
@@ -374,6 +395,37 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
     marginBottom: 18,
+  },
+
+  gapEntryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  gapEntryEmoji: {
+    fontSize: 24,
+    marginRight: 14,
+  },
+
+  gapEntryTextBlock: {
+    flex: 1,
+  },
+
+  gapEntryTitle: {
+    color: Colors.text,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+
+  gapEntrySubtitle: {
+    color: Colors.subtext,
+    fontSize: 13,
+    marginTop: 2,
+  },
+
+  gapEntryChevron: {
+    color: Colors.subtext,
+    fontSize: 22,
   },
 
   requestedTimeframe: {

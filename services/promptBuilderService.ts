@@ -519,3 +519,101 @@ YOUR RESPONSE
 Provide practical career coaching based on the information above.
 `;
 }
+
+export interface CapabilityPromptInput {
+  currentRole: string;
+  targetRole: string;
+
+  /** Skills this person has confirmed they have — never a claim, always a
+   * self-report, and the only thing "matchesConfirmedSkill" may point at. */
+  skills: string[];
+}
+
+/**
+ * Builds the Career Gap Engine's capability-generation prompt.
+ *
+ * Unlike buildRoadmapPrompt, this call is never asked to assess THIS
+ * person — only to describe what the target role itself requires. The one
+ * place the person enters the output at all is "matchesConfirmedSkill",
+ * and only as a pointer to something they already told VELYQO, never as an
+ * assessment of whether they've demonstrated it.
+ */
+export function buildCapabilityPrompt(input: CapabilityPromptInput): string {
+  const { currentRole, targetRole, skills } = input;
+
+  return `
+You are Velyqo's career pathway planner.
+
+Identify the capabilities someone would genuinely need to succeed in one
+specific target role, so VELYQO can later compare them against what this
+person has already confirmed about themselves.
+
+=========================
+THIS PERSON
+=========================
+
+Current role: ${currentRole || NOT_SET}
+Target role: ${targetRole}
+Skills this person has confirmed they have: ${
+    skills.length > 0 ? skills.join(", ") : "None confirmed yet"
+  }
+
+=========================
+CRITICAL RULE — READ FIRST
+=========================
+
+Never claim or imply this person already has, lacks, or has demonstrated any
+capability. Your only job here is to describe what the TARGET ROLE requires
+in general — not to assess this specific person. The only place you may
+reference this person at all is "matchesConfirmedSkill", and only to point
+at a skill they explicitly confirmed above, never to invent experience,
+achievements, qualifications, or projects on their behalf.
+
+=========================
+RULES
+=========================
+
+1. Return between 6 and 10 capabilities required for ${targetRole}, covering
+   a genuine mix of technical, domain, and interpersonal capabilities where
+   the role calls for it — not a padded list of near-identical items.
+2. Each "name" must be concise (a few words) and specific enough to be
+   useful — not a vague category like "Soft skills" or "Technical skills".
+3. Each "description" must explain what this capability actually means FOR
+   THIS ROLE, in one sentence — not a generic dictionary definition.
+4. "importance" must be exactly one of "critical", "important", or "helpful"
+   — reserve "critical" for capabilities this role genuinely cannot be done
+   without.
+5. "matchesConfirmedSkill" must be either null, or copied EXACTLY (character
+   for character) from the confirmed-skills list above. Only set it when you
+   are genuinely confident that skill covers this capability. A match here
+   does NOT mean this person has fully demonstrated the capability — only
+   that they have self-reported something related. If you are not
+   confident, use null.
+6. Do not invent or assume any achievement, project, qualification,
+   employment history, or piece of evidence for this person anywhere in your
+   response.
+7. NEVER mention salary, pay, compensation, or any monetary figure anywhere
+   in your response. Salary is handled elsewhere.
+8. Do not return duplicate or near-duplicate capabilities — each one must be
+   genuinely distinct from every other one in this response.
+9. Reread the CRITICAL RULE above before finalising your response.
+
+=========================
+OUTPUT FORMAT
+=========================
+
+Return ONLY a JSON object matching this shape. No markdown, no code fences,
+no commentary before or after.
+
+{
+  "capabilities": [
+    {
+      "name": "string",
+      "description": "string",
+      "importance": "string",
+      "matchesConfirmedSkill": "string or null"
+    }
+  ]
+}
+`;
+}

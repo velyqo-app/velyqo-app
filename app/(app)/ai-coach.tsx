@@ -41,8 +41,20 @@ export default function AICoachScreen() {
   // reload onto this screen renders the welcome message with blank fields.
   const { userData, error, reloadProfile } = useProfile();
 
-  const { mission: missionParam } = useLocalSearchParams<{
+  const {
+    mission: missionParam,
+    missionDescription: missionDescriptionParam,
+    capabilityGapId,
+    capabilityName,
+  } = useLocalSearchParams<{
     mission?: string;
+    missionDescription?: string;
+    // Present only when Home's Next Move was the Tier 0 capability mission —
+    // see capabilityMissionService. Carried through to Mission Complete
+    // below so a future step can attach evidence to the right
+    // capability_gaps row; this step does not act on it otherwise.
+    capabilityGapId?: string;
+    capabilityName?: string;
   }>();
 
   // Refetched once per screen focus rather than per message — sendMessage
@@ -78,6 +90,19 @@ export default function AICoachScreen() {
   // Same read-only snapshot CurrentFocusCard/suggested-questions already use
   // below — no second fetch, no new AI call, just reused earlier.
   const hasRoadmap = Boolean(context?.roadmap && context.roadmap.steps.length > 0);
+
+  // context.mission is independently recomputed by getAIContext() from the
+  // roadmap/fallback pipeline — it knows nothing about capability gaps, so
+  // when this screen was opened for a capability mission (capabilityGapId
+  // present), showing context.mission.title here would contradict the
+  // mission the user actually opened Coach for (and already sees in the
+  // welcome message and the Complete Mission flow below). Reuses the same
+  // route-carried missionParam those already use — no new fetch, no new AI
+  // context. Unchanged (still context.mission.title) whenever there is no
+  // active capability mission.
+  const currentFocusTitle = capabilityGapId
+    ? (missionParam ?? "")
+    : (context?.mission.title ?? "");
 
   const welcomeMessage = missionParam
     ? `🎯 Today's Mission
@@ -123,11 +148,29 @@ I'm your Velyqo Career Coach. How can I help today?`;
   const suggestedQuestions = buildSuggestedQuestions(context, Boolean(missionParam));
 
   const completeMission = () => {
-    // Reuses the same AIContext.mission already loaded above (the shared
+    // A capability mission (capabilityGapId present) did not come from
+    // getAIContext()'s roadmap/fallback pipeline, so context.mission would
+    // be the wrong mission entirely here — use the route-carried title and
+    // description instead, and thread capabilityGapId/capabilityName
+    // through to Mission Complete. Otherwise, unchanged: reuse the same
+    // AIContext.mission already loaded above (the shared
     // missionFromRoadmapStep/fallbackMission pipeline) rather than a second
     // mission source; falls back to the route's mission title if context
     // failed to load, and to the screen's own generic fallback if neither
     // is available.
+    if (capabilityGapId) {
+      router.replace({
+        pathname: "/mission-complete",
+        params: {
+          missionTitle: missionParam ?? "",
+          missionDescription: missionDescriptionParam ?? "",
+          capabilityGapId,
+          capabilityName: capabilityName ?? "",
+        },
+      });
+      return;
+    }
+
     router.replace({
       pathname: "/mission-complete",
       params: {
@@ -156,7 +199,7 @@ I'm your Velyqo Career Coach. How can I help today?`;
           <CurrentFocusCard
             loading={contextLoading}
             hasRoadmap={hasRoadmap}
-            missionTitle={context?.mission.title ?? ""}
+            missionTitle={currentFocusTitle}
             estimatedJourney={context?.roadmap?.estimatedJourney ?? null}
             onViewJourney={() => router.push("/timeline")}
           />
