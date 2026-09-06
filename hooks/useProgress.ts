@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 
 import { getCurrentUser } from "../services/authService";
 import { createProgress, getProgress } from "../services/progressService";
@@ -49,9 +50,16 @@ export function useProgress() {
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    loadProgress();
-  }, [loadProgress]);
+  // Refetched on every focus, not just on first mount — expo-router's Tabs
+  // keep Dashboard mounted in the background, so a plain mount-only effect
+  // would keep showing pre-completion streak/readiness numbers after Mission
+  // Complete updates them elsewhere. Mirrors the same fix already proven in
+  // ai-coach.tsx for the identical class of staleness.
+  useFocusEffect(
+    useCallback(() => {
+      loadProgress();
+    }, [loadProgress]),
+  );
 
   return {
     loading,

@@ -6,6 +6,7 @@ import {
     View,
 } from "react-native";
 
+import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
 import LoadingScreen from "../../components/ui/LoadingScreen";
 import ScreenHeader from "../../components/ui/ScreenHeader";
@@ -15,10 +16,34 @@ import { Colors } from "../../constants/theme";
 import { useJournal } from "../../hooks/useJournal";
 
 export default function CareerJournalScreen() {
-  const { loading, journal } = useJournal();
+  const { loading, error, journal, reloadJournal } = useJournal();
 
   if (loading) {
     return <LoadingScreen message="Loading your Career Journal..." />;
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ScreenHeader title="📖 Career Journal" />
+
+        <View style={styles.errorContainer}>
+          <Card>
+            <Text style={styles.errorTitle}>
+              We couldn&apos;t load your Career Journal
+            </Text>
+
+            <Text style={styles.errorText}>
+              Please check your connection and try again.
+            </Text>
+
+            <View style={styles.retrySpacing}>
+              <Button title="Retry" onPress={reloadJournal} />
+            </View>
+          </Card>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -117,5 +142,29 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 12,
     lineHeight: 24,
+  },
+
+  errorContainer: {
+    flex: 1,
+    padding: 20,
+    justifyContent: "center",
+  },
+
+  errorTitle: {
+    color: Colors.text,
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+
+  errorText: {
+    color: Colors.subtext,
+    textAlign: "center",
+    marginTop: 10,
+    lineHeight: 22,
+  },
+
+  retrySpacing: {
+    marginTop: 20,
   },
 });

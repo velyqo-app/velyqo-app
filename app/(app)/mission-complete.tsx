@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { SafeAreaView, StyleSheet, Text, View } from "react-native";
 
@@ -13,13 +13,28 @@ import { Colors, Spacing } from "../../constants/theme";
 import { getCurrentUser } from "../../services/authService";
 import { completeMission } from "../../services/progressService";
 
+const MAX_JOURNAL_DESCRIPTION = 200;
+
+function truncate(text: string, max: number): string {
+  const trimmed = text.trim();
+  return trimmed.length <= max ? trimmed : `${trimmed.slice(0, max - 1).trimEnd()}…`;
+}
+
 /**
  * Plain module-level helper (no component state) so the two call sites
  * below — the mount effect and retry() — each own their own try/catch and
  * setState calls directly, rather than sharing a closure that captures
- * setState across an effect boundary.
+ * setState across an effect boundary. missionTitle/missionDescription come
+ * from the route params the caller already resolved from the same
+ * missionFromRoadmapStep/fallbackMission pipeline Home and Coach use — this
+ * never re-derives or re-fetches the mission itself. Falls back to the
+ * original generic entry only when the actual mission genuinely wasn't
+ * passed in, rather than inventing content.
  */
-async function saveMissionProgress(): Promise<void> {
+async function saveMissionProgress(
+  missionTitle: string,
+  missionDescription: string,
+): Promise<void> {
   const {
     data: { user },
   } = await getCurrentUser();
@@ -34,10 +49,21 @@ async function saveMissionProgress(): Promise<void> {
     throw missionError;
   }
 
+  const title = missionTitle
+    ? `Completed: ${missionTitle}`
+    : "Completed Today's Mission";
+
+  const description = missionTitle
+    ? truncate(
+        missionDescription || "Successfully completed today's career mission.",
+        MAX_JOURNAL_DESCRIPTION,
+      )
+    : "Successfully completed today's career mission.";
+
   const { error: journalError } = await createJournalEntry({
     userId: user.id,
-    title: "Completed Today's Mission",
-    description: "Successfully completed today's career mission.",
+    title,
+    description,
     entryType: "mission",
   });
 
@@ -47,13 +73,18 @@ async function saveMissionProgress(): Promise<void> {
 }
 
 export default function MissionCompleteScreen() {
+  const { missionTitle, missionDescription } = useLocalSearchParams<{
+    missionTitle?: string;
+    missionDescription?: string;
+  }>();
+
   const [saving, setSaving] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     const run = async () => {
       try {
-        await saveMissionProgress();
+        await saveMissionProgress(missionTitle ?? "", missionDescription ?? "");
 
         setSaving(false);
       } catch (thrown) {
@@ -69,13 +100,13 @@ export default function MissionCompleteScreen() {
     };
 
     run();
-  }, []);
+  }, [missionTitle, missionDescription]);
 
   const retry = () => {
     setSaving(true);
     setError(false);
 
-    saveMissionProgress()
+    saveMissionProgress(missionTitle ?? "", missionDescription ?? "")
       .then(() => setSaving(false))
       .catch((thrown) => {
         console.warn("Mission completion retry failed:", thrown);

@@ -1,6 +1,8 @@
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
 import {
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -73,6 +75,10 @@ export default function AICoachScreen() {
     }, []),
   );
 
+  // Same read-only snapshot CurrentFocusCard/suggested-questions already use
+  // below — no second fetch, no new AI call, just reused earlier.
+  const hasRoadmap = Boolean(context?.roadmap && context.roadmap.steps.length > 0);
+
   const welcomeMessage = missionParam
     ? `🎯 Today's Mission
 
@@ -86,7 +92,11 @@ Ask me anything about this topic and we'll work through it together.`
 
 I couldn't load your profile just now, so I don't have your career details
 handy. You can still ask me anything, or retry below.`
-      : `Hi ${userData.name || "there"} 👋
+      : hasRoadmap && context
+        ? `Hi ${userData.name || "there"} 👋
+
+Right now you're working toward "${context.mission.title}" on your way to ${userData.targetRole || "your target role"}. What would you like to dig into?`
+        : `Hi ${userData.name || "there"} 👋
 
 I'm your Velyqo Career Coach. How can I help today?`;
 
@@ -110,8 +120,22 @@ I'm your Velyqo Career Coach. How can I help today?`;
     sendMessage(originalMessage);
   };
 
-  const hasRoadmap = Boolean(context?.roadmap && context.roadmap.steps.length > 0);
   const suggestedQuestions = buildSuggestedQuestions(context, Boolean(missionParam));
+
+  const completeMission = () => {
+    // Reuses the same AIContext.mission already loaded above (the shared
+    // missionFromRoadmapStep/fallbackMission pipeline) rather than a second
+    // mission source; falls back to the route's mission title if context
+    // failed to load, and to the screen's own generic fallback if neither
+    // is available.
+    router.replace({
+      pathname: "/mission-complete",
+      params: {
+        missionTitle: context?.mission.title ?? missionParam ?? "",
+        missionDescription: context?.mission.description ?? "",
+      },
+    });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -120,59 +144,62 @@ I'm your Velyqo Career Coach. How can I help today?`;
         targetRole={userData.targetRole}
       />
 
-      <ScrollView
-        style={styles.chat}
-        contentContainerStyle={styles.chatContent}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
-        <CurrentFocusCard
-          loading={contextLoading}
-          hasRoadmap={hasRoadmap}
-          missionTitle={context?.mission.title ?? ""}
-          estimatedJourney={context?.roadmap?.estimatedJourney ?? null}
-          onViewJourney={() => router.push("/timeline")}
-        />
+        <ScrollView
+          style={styles.chat}
+          contentContainerStyle={styles.chatContent}
+        >
+          <CurrentFocusCard
+            loading={contextLoading}
+            hasRoadmap={hasRoadmap}
+            missionTitle={context?.mission.title ?? ""}
+            estimatedJourney={context?.roadmap?.estimatedJourney ?? null}
+            onViewJourney={() => router.push("/timeline")}
+          />
 
-        <ChatBubble message={welcomeMessage} isUser={false} />
+          <ChatBubble message={welcomeMessage} isUser={false} />
 
-        {error && (
-          <View style={styles.retryContainer}>
-            <Button title="Retry" onPress={reloadProfile} />
-          </View>
+          {error && (
+            <View style={styles.retryContainer}>
+              <Button title="Retry" onPress={reloadProfile} />
+            </View>
+          )}
+
+          {messages.length === 0 && suggestedQuestions.length > 0 && (
+            <SuggestedQuestions
+              questions={suggestedQuestions}
+              onSelect={sendMessage}
+              disabled={loading}
+            />
+          )}
+
+          {messages.map((msg, index) => (
+            <ChatBubble
+              key={index}
+              message={msg.text}
+              isUser={msg.isUser}
+              isError={msg.failed}
+              onRetry={
+                msg.failed
+                  ? () => retry(messages[index - 1]?.text ?? "")
+                  : undefined
+              }
+            />
+          ))}
+
+          {loading && <TypingIndicator />}
+        </ScrollView>
+
+        {missionParam && (
+          <Button title="✅ Complete Mission" onPress={completeMission} />
         )}
 
-        {messages.length === 0 && suggestedQuestions.length > 0 && (
-          <SuggestedQuestions
-            questions={suggestedQuestions}
-            onSelect={sendMessage}
-            disabled={loading}
-          />
-        )}
-
-        {messages.map((msg, index) => (
-          <ChatBubble
-            key={index}
-            message={msg.text}
-            isUser={msg.isUser}
-            isError={msg.failed}
-            onRetry={
-              msg.failed
-                ? () => retry(messages[index - 1]?.text ?? "")
-                : undefined
-            }
-          />
-        ))}
-
-        {loading && <TypingIndicator />}
-      </ScrollView>
-
-      {missionParam && (
-        <Button
-          title="✅ Complete Mission"
-          onPress={() => router.replace("/mission-complete")}
-        />
-      )}
-
-      <ChatInput onSend={sendMessage} disabled={loading} />
+        <ChatInput onSend={sendMessage} disabled={loading} />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -181,6 +208,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+
+  flex: {
+    flex: 1,
   },
 
   chat: {

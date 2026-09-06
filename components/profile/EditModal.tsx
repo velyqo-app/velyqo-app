@@ -1,7 +1,9 @@
 import { ReactNode } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -40,39 +42,52 @@ export default function EditModal({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.backdrop} onPress={onClose} />
+      {/* Modal content sits outside the screen's own KeyboardAvoidingView
+       * (if any), so the bottom sheet needs its own — otherwise the
+       * TextInput/Save button inside it can end up under the keyboard,
+       * especially on Android. */}
+      <KeyboardAvoidingView
+        style={styles.avoiding}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <Pressable style={styles.backdrop} onPress={onClose} />
 
-      <View style={styles.sheet}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{title}</Text>
+        <View style={styles.sheet}>
+          <View style={styles.header}>
+            <Text style={styles.title}>{title}</Text>
 
-          <TouchableOpacity onPress={onClose} hitSlop={12}>
-            <Text style={styles.close}>✕</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={12}>
+              <Text style={styles.close}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.content}>{children}</View>
+
+          <TouchableOpacity
+            style={[
+              styles.saveButton,
+              (saveDisabled || saving) && styles.saveButtonDisabled,
+            ]}
+            onPress={onSave}
+            disabled={saveDisabled || saving}
+          >
+            {saving ? (
+              <ActivityIndicator color={Colors.text} />
+            ) : (
+              <Text style={styles.saveText}>Save</Text>
+            )}
           </TouchableOpacity>
         </View>
-
-        <View style={styles.content}>{children}</View>
-
-        <TouchableOpacity
-          style={[
-            styles.saveButton,
-            (saveDisabled || saving) && styles.saveButtonDisabled,
-          ]}
-          onPress={onSave}
-          disabled={saveDisabled || saving}
-        >
-          {saving ? (
-            <ActivityIndicator color={Colors.text} />
-          ) : (
-            <Text style={styles.saveText}>Save</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  avoiding: {
+    flex: 1,
+  },
+
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",

@@ -16,7 +16,9 @@ import {
 import { RoadmapSalary } from "../../types/roadmap";
 
 import OnboardingProgress from "../../components/onboarding/OnboardingProgress";
+import BlueprintField from "../../components/profile/BlueprintField";
 import Button from "../../components/ui/Button";
+import Card from "../../components/ui/Card";
 import { Colors, Spacing } from "../../constants/theme";
 import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingSteps";
 
@@ -139,89 +141,128 @@ export default function SummaryScreen() {
           total={ONBOARDING_TOTAL_STEPS}
         />
 
-        <Text style={styles.title}>Your Velyqo Profile</Text>
+        <Text style={styles.title}>Your Career Blueprint</Text>
 
-        <Text style={styles.item}>Name: {userData.name}</Text>
-
-        <Text style={styles.item}>Goal: {userData.goal}</Text>
-
-        <Text style={styles.item}>Country: {userData.country}</Text>
-
-        <Text style={styles.item}>Current Role: {userData.currentRole}</Text>
-
-        <Text style={styles.item}>
-          Current Salary:{" "}
-          {userData.currentSalary
-            ? `£${Number(userData.currentSalary).toLocaleString()}`
-            : "Not provided"}
+        <Text style={styles.subtitle}>
+          This is what we&apos;ll build your roadmap around.
         </Text>
 
-        <Text style={styles.item}>Target Role: {userData.targetRole}</Text>
+        <Card>
+          <Text style={styles.cardTitle}>Career Blueprint</Text>
 
-        {userData.startingSituation ? (
-          <Text style={styles.item}>
-            Starting situation: {STARTING_SITUATION_LABELS[userData.startingSituation]}
-          </Text>
-        ) : null}
+          <BlueprintField label="Current Role" value={userData.currentRole || "Not set"} />
 
-        {userData.experienceLevel ? (
-          <Text style={styles.item}>
-            Experience: {EXPERIENCE_LEVEL_LABELS[userData.experienceLevel]}
-          </Text>
-        ) : null}
+          <BlueprintField
+            label="Current Salary"
+            value={
+              userData.currentSalary
+                ? `£${Number(userData.currentSalary).toLocaleString()}`
+                : "Not provided"
+            }
+          />
 
-        {userData.educationLevel ? (
-          <Text style={styles.item}>
-            Education: {EDUCATION_LEVEL_LABELS[userData.educationLevel]}
-          </Text>
-        ) : null}
+          <BlueprintField
+            label="Experience Level"
+            value={
+              userData.experienceLevel
+                ? EXPERIENCE_LEVEL_LABELS[userData.experienceLevel]
+                : "Not set"
+            }
+          />
 
-        {userData.skills.length > 0 ? (
-          <Text style={styles.item}>Skills: {userData.skills.join(", ")}</Text>
-        ) : null}
+          <BlueprintField
+            label="Skills"
+            value={
+              userData.skills.length > 0 ? userData.skills.join(", ") : "None added yet"
+            }
+          />
 
-        {userData.targetTimeframe ? (
-          <Text style={styles.item}>
-            Target timeframe: {TARGET_TIMEFRAME_LABELS[userData.targetTimeframe]}
-          </Text>
-        ) : null}
+          <BlueprintField label="Target Role" value={userData.targetRole || "Not set"} />
 
-        <Text style={styles.item}>
-          Target Salary:{" "}
-          {userData.targetSalary
-            ? `£${Number(userData.targetSalary).toLocaleString()}`
-            : "Not provided"}
-        </Text>
+          <BlueprintField
+            label="Target Salary"
+            value={
+              userData.targetSalary
+                ? `£${Number(userData.targetSalary).toLocaleString()}`
+                : "Not provided"
+            }
+          />
 
-        {increase !== null ? (
-          <Text style={styles.item}>
-            Potential Increase:{" "}
-            {increase >= 0
-              ? `£${increase.toLocaleString()}`
-              : `-£${Math.abs(increase).toLocaleString()}`}
-          </Text>
-        ) : null}
+          <BlueprintField
+            label="Target Timeframe"
+            value={
+              userData.targetTimeframe
+                ? TARGET_TIMEFRAME_LABELS[userData.targetTimeframe]
+                : "Not set"
+            }
+            last
+          />
+        </Card>
 
-        <Text style={styles.item}>Verified Market Range</Text>
+        <Card>
+          <Text style={styles.cardTitle}>About You</Text>
 
-        {targetSalaryBand ? (
-          <>
-            <Text style={styles.item}>
-              {formatMoney(targetSalaryBand.currency, targetSalaryBand.low)} –{" "}
-              {formatMoney(targetSalaryBand.currency, targetSalaryBand.high)}
-            </Text>
+          <BlueprintField label="Name" value={userData.name || "Not set"} />
 
+          <BlueprintField label="Goal" value={userData.goal || "Not set"} />
+
+          <BlueprintField label="Country" value={userData.country || "Not set"} />
+
+          <BlueprintField
+            label="Starting Situation"
+            value={
+              userData.startingSituation
+                ? STARTING_SITUATION_LABELS[userData.startingSituation]
+                : "Not set"
+            }
+          />
+
+          <BlueprintField
+            label="Education"
+            value={
+              userData.educationLevel
+                ? EDUCATION_LEVEL_LABELS[userData.educationLevel]
+                : "Not set"
+            }
+            last
+          />
+        </Card>
+
+        <Card>
+          <Text style={styles.cardTitle}>Salary Outlook</Text>
+
+          {increase !== null ? (
+            <BlueprintField
+              label="Potential Increase"
+              value={
+                increase >= 0
+                  ? `£${increase.toLocaleString()}`
+                  : `-£${Math.abs(increase).toLocaleString()}`
+              }
+            />
+          ) : null}
+
+          <Text style={styles.marketLabel}>Verified Market Range</Text>
+
+          {targetSalaryBand ? (
+            <>
+              <Text style={styles.marketValue}>
+                {formatMoney(targetSalaryBand.currency, targetSalaryBand.low)} –{" "}
+                {formatMoney(targetSalaryBand.currency, targetSalaryBand.high)}
+              </Text>
+
+              <Text style={styles.provenance}>
+                {targetSalaryBand.dataType.toLowerCase()} data
+                {targetSalaryBand.source ? ` · ${targetSalaryBand.source}` : ""} ·{" "}
+                {targetSalaryBand.confidence}% confidence
+              </Text>
+            </>
+          ) : (
             <Text style={styles.provenance}>
-              {targetSalaryBand.dataType.toLowerCase()} data
-              {targetSalaryBand.source ? ` · ${targetSalaryBand.source}` : ""} ·{" "}
-              {targetSalaryBand.confidence}% confidence
+              No verified market data available for this role yet.
             </Text>
-          </>
-        ) : (
-          <Text style={styles.provenance}>
-            No verified market data available for this role yet.
-          </Text>
-        )}
+          )}
+        </Card>
 
         <View style={styles.buttonSpacing}>
           <Button title="Create My Career Roadmap" onPress={saveProfile} />
@@ -246,14 +287,35 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontSize: 28,
     fontWeight: "700",
+    marginBottom: Spacing.xs,
+    textAlign: "center",
+  },
+
+  subtitle: {
+    color: Colors.subtext,
+    fontSize: 14,
     marginBottom: Spacing.lg,
     textAlign: "center",
   },
 
-  item: {
+  cardTitle: {
+    color: Colors.text,
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+
+  marketLabel: {
+    color: Colors.subtext,
+    fontSize: 13,
+    marginTop: Spacing.sm,
+    marginBottom: 6,
+  },
+
+  marketValue: {
     color: Colors.text,
     fontSize: 16,
-    marginBottom: Spacing.sm,
+    fontWeight: "600",
   },
 
   provenance: {
