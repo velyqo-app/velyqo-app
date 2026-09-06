@@ -1,120 +1,101 @@
 import { router } from "expo-router";
 import { useContext } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { UserContext } from "../../context/UserContext";
+
+import OnboardingProgress from "../../components/onboarding/OnboardingProgress";
+import { Colors, Radius, Spacing } from "../../constants/theme";
+import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingSteps";
+
+const GOALS = [
+  { emoji: "📈", label: "Advance my career", value: "Advance my career" },
+  { emoji: "🔄", label: "Change careers", value: "Change careers" },
+  { emoji: "🧭", label: "Explore careers", value: "Explore careers" },
+  { emoji: "💰", label: "Increase my income", value: "Increase my income" },
+  { emoji: "🚀", label: "Plan my future", value: "Plan my future" },
+];
 
 export default function PurposeScreen() {
   const { userData, setUserData } = useContext(UserContext);
 
+  const selectGoal = (goal: string) => {
+    setUserData({
+      ...userData,
+      goal,
+    });
+
+    router.push("/onboarding/starting-situation");
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome {userData.name || "there"}!</Text>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        <OnboardingProgress
+          step={ONBOARDING_STEP.purpose}
+          total={ONBOARDING_TOTAL_STEPS}
+        />
 
-      <Text
-        style={{
-          color: "#FFFFFF",
-          textAlign: "center",
-          marginBottom: 32,
-        }}
-      >
-        What would you like Velyqo to help you with?
-      </Text>
+        <Text style={styles.title}>Welcome {userData.name || "there"}!</Text>
 
-      <TouchableOpacity
-        style={styles.option}
-        onPress={() => {
-          setUserData({
-            ...userData,
-            goal: "Advance my career",
-          });
+        <Text style={styles.subtitle}>
+          What would you like Velyqo to help you with?
+        </Text>
 
-          router.push("/onboarding/starting-situation");
-        }}
-      >
-        <Text style={styles.optionText}>📈 Advance my career</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.option}
-        onPress={() => {
-          setUserData({
-            ...userData,
-            goal: "Change careers",
-          });
-
-          router.push("/onboarding/starting-situation");
-        }}
-      >
-        <Text style={styles.optionText}>🔄 Change careers</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.option}
-        onPress={() => {
-          setUserData({
-            ...userData,
-            goal: "Explore careers",
-          });
-
-          router.push("/onboarding/starting-situation");
-        }}
-      >
-        <Text style={styles.optionText}>🧭 Explore careers</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.option}
-        onPress={() => {
-          setUserData({
-            ...userData,
-            goal: "Increase my income",
-          });
-
-          router.push("/onboarding/starting-situation");
-        }}
-      >
-        <Text style={styles.optionText}>💰 Increase my income</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.option}
-        onPress={() => {
-          setUserData({
-            ...userData,
-            goal: "Plan my future",
-          });
-
-          router.push("/onboarding/starting-situation");
-        }}
-      >
-        <Text style={styles.optionText}>🚀 Plan my future</Text>
-      </TouchableOpacity>
-    </View>
+        {GOALS.map((goal) => (
+          <TouchableOpacity
+            key={goal.value}
+            style={styles.option}
+            activeOpacity={0.85}
+            onPress={() => selectGoal(goal.value)}
+          >
+            <Text style={styles.optionText}>
+              {goal.emoji} {goal.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B1120",
-    padding: 24,
+    backgroundColor: Colors.background,
+  },
+
+  content: {
+    flex: 1,
+    padding: Spacing.lg,
     justifyContent: "center",
   },
+
   title: {
-    color: "#FFFFFF",
+    color: Colors.text,
     fontSize: 28,
     fontWeight: "700",
     textAlign: "center",
-    marginBottom: 32,
+    marginBottom: Spacing.sm,
   },
+
+  subtitle: {
+    color: Colors.subtext,
+    textAlign: "center",
+    marginBottom: Spacing.lg,
+  },
+
   option: {
-    backgroundColor: "#1E293B",
-    padding: 18,
-    borderRadius: 14,
-    marginBottom: 16,
+    backgroundColor: Colors.card,
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
+
   optionText: {
-    color: "#FFFFFF",
+    color: Colors.text,
     fontSize: 16,
+    fontWeight: "600",
   },
 });

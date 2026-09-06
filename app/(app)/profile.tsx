@@ -10,7 +10,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
 } from "react-native";
 
 import Button from "../../components/ui/Button";
@@ -24,6 +23,7 @@ import CareerBlueprintCard from "../../components/profile/CareerBlueprintCard";
 import EditModal from "../../components/profile/EditModal";
 import ProfileLinkRow from "../../components/profile/ProfileLinkRow";
 import SkillSelector from "../../components/SkillSelector";
+import ScreenHeader from "../../components/ui/ScreenHeader";
 
 import { useOccupationSearch } from "../../hooks/useOccupationSearch";
 import {
@@ -342,9 +342,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Profile</Text>
-      </View>
+      <ScreenHeader title="My Profile" />
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -556,23 +554,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-
-  headerTitle: {
-    color: Colors.text,
-    fontSize: 22,
-    fontWeight: "700",
   },
 
   content: {

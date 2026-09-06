@@ -8,6 +8,7 @@ import {
 
 import Card from "../../components/ui/Card";
 import LoadingScreen from "../../components/ui/LoadingScreen";
+import ScreenHeader from "../../components/ui/ScreenHeader";
 
 import { Colors } from "../../constants/theme";
 
@@ -22,9 +23,7 @@ export default function CareerJournalScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>📖 Career Journal</Text>
-      </View>
+      <ScreenHeader title="📖 Career Journal" />
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -69,23 +68,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-
-  title: {
-    color: Colors.text,
-    fontSize: 24,
-    fontWeight: "700",
   },
 
   content: {

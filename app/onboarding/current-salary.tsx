@@ -1,14 +1,19 @@
 import { router } from "expo-router";
 import { useContext, useState } from "react";
 import {
+  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
 
 import { UserContext } from "../../context/UserContext";
+
+import OnboardingProgress from "../../components/onboarding/OnboardingProgress";
+import Button from "../../components/ui/Button";
+import { Colors, Radius, Spacing } from "../../constants/theme";
+import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingSteps";
 
 export default function CurrentSalaryScreen() {
   const { userData, setUserData } = useContext(UserContext);
@@ -26,60 +31,58 @@ export default function CurrentSalaryScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>What is your current annual salary?</Text>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        <OnboardingProgress
+          step={ONBOARDING_STEP.currentSalary}
+          total={ONBOARDING_TOTAL_STEPS}
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="25000"
-        placeholderTextColor="#94A3B8"
-        keyboardType="numeric"
-        value={salary}
-        onChangeText={setSalary}
-      />
+        <Text style={styles.title}>What is your current annual salary?</Text>
 
-      <TouchableOpacity style={styles.button} onPress={handleContinue}>
-        <Text style={styles.buttonText}>Continue</Text>
-      </TouchableOpacity>
-    </View>
+        <TextInput
+          style={styles.input}
+          placeholder="25000"
+          placeholderTextColor={Colors.subtext}
+          keyboardType="numeric"
+          value={salary}
+          onChangeText={setSalary}
+        />
+
+        <Button title="Continue" onPress={handleContinue} />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B1120",
-    padding: 24,
+    backgroundColor: Colors.background,
+  },
+
+  content: {
+    flex: 1,
+    padding: Spacing.lg,
     justifyContent: "center",
   },
 
   title: {
-    color: "#FFFFFF",
+    color: Colors.text,
     fontSize: 28,
     fontWeight: "700",
     textAlign: "center",
-    marginBottom: 30,
+    marginBottom: Spacing.lg,
   },
 
   input: {
-    backgroundColor: "#1E293B",
-    color: "#FFFFFF",
-    padding: 18,
-    borderRadius: 14,
-    marginBottom: 20,
+    backgroundColor: Colors.card,
+    color: Colors.text,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    marginBottom: Spacing.lg,
     fontSize: 16,
-  },
-
-  button: {
-    backgroundColor: "#7C3AED",
-    padding: 18,
-    borderRadius: 14,
-    alignItems: "center",
-  },
-
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
 });

@@ -1,13 +1,18 @@
 import { router } from "expo-router";
 import { useContext, useState } from "react";
 import {
+  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { UserContext } from "../../context/UserContext";
+
+import OnboardingProgress from "../../components/onboarding/OnboardingProgress";
+import Button from "../../components/ui/Button";
+import { Colors, Radius, Spacing } from "../../constants/theme";
+import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingSteps";
 
 export default function NameScreen() {
   const [name, setName] = useState("");
@@ -29,58 +34,56 @@ export default function NameScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>What is your first name?</Text>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        <OnboardingProgress
+          step={ONBOARDING_STEP.name}
+          total={ONBOARDING_TOTAL_STEPS}
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Enter your first name"
-        placeholderTextColor="#94A3B8"
-        value={name}
-        onChangeText={setName}
-      />
+        <Text style={styles.title}>What is your first name?</Text>
 
-      <TouchableOpacity style={styles.button} onPress={handleContinue}>
-        <Text style={styles.buttonText}>Continue</Text>
-      </TouchableOpacity>
-    </View>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter your first name"
+          placeholderTextColor={Colors.subtext}
+          value={name}
+          onChangeText={setName}
+        />
+
+        <Button title="Continue" onPress={handleContinue} />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B1120",
-    padding: 24,
+    backgroundColor: Colors.background,
+  },
+
+  content: {
+    flex: 1,
+    padding: Spacing.lg,
     justifyContent: "center",
   },
 
   title: {
-    color: "#FFFFFF",
+    color: Colors.text,
     fontSize: 28,
     fontWeight: "700",
-    marginBottom: 24,
+    marginBottom: Spacing.lg,
     textAlign: "center",
   },
 
   input: {
-    backgroundColor: "#1E293B",
-    color: "#FFFFFF",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
-  },
-
-  button: {
-    backgroundColor: "#7C3AED",
-    padding: 18,
-    borderRadius: 14,
-    alignItems: "center",
-  },
-
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
+    backgroundColor: Colors.card,
+    color: Colors.text,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
 });

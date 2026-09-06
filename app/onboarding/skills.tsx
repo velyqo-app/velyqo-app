@@ -1,10 +1,10 @@
 import { router } from "expo-router";
 import { useContext, useEffect, useState } from "react";
 import {
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 
@@ -18,6 +18,11 @@ import {
   getAllKnownSkills,
   getSuggestedSkills,
 } from "../../services/skillSuggestionService";
+
+import OnboardingProgress from "../../components/onboarding/OnboardingProgress";
+import Button from "../../components/ui/Button";
+import { Colors, Spacing } from "../../constants/theme";
+import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingSteps";
 
 export default function SkillsScreen() {
   const { userData, setUserData } = useContext(UserContext);
@@ -71,17 +76,22 @@ export default function SkillsScreen() {
   };
 
   if (resolving) {
-    return <View style={styles.container} />;
+    return <SafeAreaView style={styles.container} />;
   }
 
   const suggested = getSuggestedSkills(category, userData.startingSituation);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        <OnboardingProgress
+          step={ONBOARDING_STEP.skills}
+          total={ONBOARDING_TOTAL_STEPS}
+        />
+
         <Text style={styles.title}>Which skills do you already have?</Text>
 
         <Text style={styles.subtitle}>
@@ -95,46 +105,40 @@ export default function SkillsScreen() {
           onChange={(skills) => setUserData({ ...userData, skills })}
         />
 
-        <TouchableOpacity style={styles.button} onPress={handleContinue}>
-          <Text style={styles.buttonText}>Continue</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonSpacing}>
+          <Button title="Continue" onPress={handleContinue} />
+        </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B1120",
+    backgroundColor: Colors.background,
   },
+
   content: {
-    padding: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
+    padding: Spacing.lg,
+    paddingBottom: Spacing.xl,
   },
+
   title: {
-    color: "#FFFFFF",
+    color: Colors.text,
     fontSize: 28,
     fontWeight: "700",
     textAlign: "center",
   },
+
   subtitle: {
-    color: "#94A3B8",
+    color: Colors.subtext,
     textAlign: "center",
-    marginTop: 12,
+    marginTop: Spacing.sm,
   },
-  button: {
-    backgroundColor: "#7C3AED",
-    padding: 18,
-    borderRadius: 14,
-    alignItems: "center",
-    marginTop: 28,
-    marginBottom: 24,
-  },
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
+
+  buttonSpacing: {
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
   },
 });

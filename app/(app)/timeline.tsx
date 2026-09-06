@@ -17,6 +17,7 @@ import JourneyPath from "../../components/journey/JourneyPath";
 import StickyDateIndicator from "../../components/journey/StickyDateIndicator";
 import Card from "../../components/ui/Card";
 import LoadingScreen from "../../components/ui/LoadingScreen";
+import ScreenHeader from "../../components/ui/ScreenHeader";
 import { Colors, Radius } from "../../constants/theme";
 import { useRoadmap } from "../../hooks/useRoadmap";
 import { formatJourneyHeadline } from "../../services/journeyEstimateFormat";
@@ -268,9 +269,7 @@ export default function TimelineScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Your Journey</Text>
-      </View>
+      <ScreenHeader title="Your Journey" />
 
       <View style={styles.scrollWrapper}>
         {!profileError && !needsDecision && roadmap && (
@@ -358,23 +357,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-
-  headerTitle: {
-    color: Colors.text,
-    fontSize: 22,
-    fontWeight: "700",
   },
 
   scrollWrapper: {

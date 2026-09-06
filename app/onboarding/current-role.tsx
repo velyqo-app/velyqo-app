@@ -1,12 +1,17 @@
 import { router } from "expo-router";
 import { useContext } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView, StyleSheet, Text, View } from "react-native";
 
 import OccupationAutocomplete from "../../components/OccupationAutocomplete";
 import { UserContext } from "../../context/UserContext";
 import { useOccupationSearch } from "../../hooks/useOccupationSearch";
 import { StartingSituation, impliesNoProfessionalExperience } from "../../types/careerContext";
 import { Occupation } from "../../types/occupation";
+
+import OnboardingProgress from "../../components/onboarding/OnboardingProgress";
+import Button from "../../components/ui/Button";
+import { Colors, Spacing } from "../../constants/theme";
+import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingSteps";
 
 // Keyed on startingSituation so the question never implies employment the
 // user hasn't had. "" covers a user who somehow reaches this screen without
@@ -84,55 +89,56 @@ export default function CurrentRoleScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>
-        {TITLE_BY_SITUATION[userData.startingSituation]}
-      </Text>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        <OnboardingProgress
+          step={ONBOARDING_STEP.currentRole}
+          total={ONBOARDING_TOTAL_STEPS}
+        />
 
-      <OccupationAutocomplete
-        label="Current Occupation"
-        placeholder="Start typing..."
-        value={query}
-        results={results}
-        loading={loading}
-        onChangeText={handleQueryChange}
-        onSelect={handleSelect}
-      />
+        <Text style={styles.title}>
+          {TITLE_BY_SITUATION[userData.startingSituation]}
+        </Text>
 
-      <TouchableOpacity style={styles.button} onPress={handleContinue}>
-        <Text style={styles.buttonText}>Continue</Text>
-      </TouchableOpacity>
-    </View>
+        <OccupationAutocomplete
+          label="Current Occupation"
+          placeholder="Start typing..."
+          value={query}
+          results={results}
+          loading={loading}
+          onChangeText={handleQueryChange}
+          onSelect={handleSelect}
+        />
+
+        <View style={styles.buttonSpacing}>
+          <Button title="Continue" onPress={handleContinue} />
+        </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B1120",
-    padding: 24,
+    backgroundColor: Colors.background,
+  },
+
+  content: {
+    flex: 1,
+    padding: Spacing.lg,
     justifyContent: "center",
   },
 
   title: {
-    color: "#FFFFFF",
+    color: Colors.text,
     fontSize: 28,
     fontWeight: "700",
-    marginBottom: 24,
+    marginBottom: Spacing.lg,
     textAlign: "center",
   },
 
-  button: {
-    backgroundColor: "#7C3AED",
-    padding: 18,
-    borderRadius: 14,
-    alignItems: "center",
-    marginTop: 24,
-  },
-
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
+  buttonSpacing: {
+    marginTop: Spacing.lg,
   },
 });

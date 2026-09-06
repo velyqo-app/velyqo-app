@@ -1,58 +1,112 @@
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { SafeAreaView, StyleSheet, Text, View } from "react-native";
 
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
+import LoadingScreen from "../../components/ui/LoadingScreen";
 
 import { createJournalEntry } from "../../services/journalService";
 
-import { Colors } from "../../constants/theme";
+import { Colors, Spacing } from "../../constants/theme";
 
 import { getCurrentUser } from "../../services/authService";
 import { completeMission } from "../../services/progressService";
 
+/**
+ * Plain module-level helper (no component state) so the two call sites
+ * below — the mount effect and retry() — each own their own try/catch and
+ * setState calls directly, rather than sharing a closure that captures
+ * setState across an effect boundary.
+ */
+async function saveMissionProgress(): Promise<void> {
+  const {
+    data: { user },
+  } = await getCurrentUser();
+
+  if (!user) {
+    return;
+  }
+
+  const { error: missionError } = await completeMission(user.id);
+
+  if (missionError) {
+    throw missionError;
+  }
+
+  const { error: journalError } = await createJournalEntry({
+    userId: user.id,
+    title: "Completed Today's Mission",
+    description: "Successfully completed today's career mission.",
+    entryType: "mission",
+  });
+
+  if (journalError) {
+    throw journalError;
+  }
+}
+
 export default function MissionCompleteScreen() {
   const [saving, setSaving] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    const saveProgress = async () => {
-      const {
-        data: { user },
-      } = await getCurrentUser();
+    const run = async () => {
+      try {
+        await saveMissionProgress();
 
-      if (!user) {
         setSaving(false);
-        return;
+      } catch (thrown) {
+        // Either write can fail independently (a thrown network error, or a
+        // returned Supabase error neither call throws on by itself) —
+        // either way the user must see a real retry, not a spinner that
+        // never resolves.
+        console.warn("Mission completion failed:", thrown);
+
+        setError(true);
+        setSaving(false);
       }
-
-      await completeMission(user.id);
-
-      await createJournalEntry({
-        userId: user.id,
-        title: "Completed Today's Mission",
-        description: "Successfully completed today's career mission.",
-        entryType: "mission",
-      });
-
-      setSaving(false);
     };
 
-    saveProgress();
+    run();
   }, []);
 
+  const retry = () => {
+    setSaving(true);
+    setError(false);
+
+    saveMissionProgress()
+      .then(() => setSaving(false))
+      .catch((thrown) => {
+        console.warn("Mission completion retry failed:", thrown);
+
+        setError(true);
+        setSaving(false);
+      });
+  };
+
   if (saving) {
+    return <LoadingScreen message="Saving your progress..." />;
+  }
+
+  if (error) {
     return (
       <SafeAreaView style={styles.container}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <View style={styles.content}>
+          <Card>
+            <Text style={styles.errorTitle}>
+              We couldn&apos;t save your progress
+            </Text>
 
-        <Text style={styles.loading}>Saving your progress...</Text>
+            <Text style={styles.errorText}>
+              Please check your connection and try again.
+            </Text>
+
+            <View style={styles.buttonSpacing}>
+              <Button title="Retry" onPress={retry} />
+            </View>
+          </Card>
+        </View>
       </SafeAreaView>
     );
   }
@@ -61,25 +115,25 @@ export default function MissionCompleteScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <Card>
-          <Text style={styles.emoji}>🎉</Text>
+          <Text style={styles.badge}>MISSION COMPLETE</Text>
 
-          <Text style={styles.title}>Daily Win!</Text>
+          <Text style={styles.title}>Nice work.</Text>
 
           <Text style={styles.subtitle}>
-            Great job completing today&apos;s mission.
+            You completed today&apos;s mission.
           </Text>
 
           <View style={styles.divider} />
 
-          <Text style={styles.metric}>🔥 Momentum Increased</Text>
+          <Text style={styles.metric}>Momentum increased</Text>
 
-          <Text style={styles.metric}>📈 Career Readiness Updated</Text>
+          <Text style={styles.metric}>Career readiness updated</Text>
 
           <Text style={styles.metric}>
-            🚀 You&apos;re one step closer to your target career.
+            One step closer to your target career
           </Text>
 
-          <View style={{ marginTop: 30 }}>
+          <View style={styles.buttonSpacing}>
             <Button
               title="Return to Career Brief"
               onPress={() => router.replace("/dashboard")}
@@ -99,47 +153,63 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    padding: 20,
+    padding: Spacing.lg,
   },
 
-  emoji: {
-    fontSize: 64,
+  badge: {
+    color: Colors.success,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 1.4,
     textAlign: "center",
+    marginBottom: Spacing.sm,
   },
 
   title: {
     color: Colors.text,
-    fontSize: 30,
+    fontSize: 26,
     fontWeight: "800",
     textAlign: "center",
-    marginTop: 20,
   },
 
   subtitle: {
     color: Colors.subtext,
     textAlign: "center",
-    marginTop: 10,
-    fontSize: 16,
-    lineHeight: 24,
+    marginTop: Spacing.xs,
+    fontSize: 15,
+    lineHeight: 22,
   },
 
   divider: {
     height: 1,
     backgroundColor: Colors.border,
-    marginVertical: 30,
+    marginVertical: Spacing.lg,
   },
 
   metric: {
     color: Colors.text,
-    fontSize: 18,
+    fontSize: 15,
     textAlign: "center",
-    marginBottom: 14,
+    lineHeight: 22,
+    marginBottom: Spacing.xs,
   },
 
-  loading: {
+  buttonSpacing: {
+    marginTop: Spacing.lg,
+  },
+
+  errorTitle: {
     color: Colors.text,
+    fontSize: 20,
+    fontWeight: "700",
     textAlign: "center",
-    marginTop: 20,
-    fontSize: 16,
+  },
+
+  errorText: {
+    color: Colors.subtext,
+    textAlign: "center",
+    marginTop: Spacing.sm,
+    fontSize: 15,
+    lineHeight: 22,
   },
 });

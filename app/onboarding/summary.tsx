@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useContext, useEffect, useState } from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { UserContext } from "../../context/UserContext";
 import { supabase } from "../../lib/supabase";
@@ -14,6 +14,11 @@ import {
   TARGET_TIMEFRAME_LABELS,
 } from "../../types/careerContext";
 import { RoadmapSalary } from "../../types/roadmap";
+
+import OnboardingProgress from "../../components/onboarding/OnboardingProgress";
+import Button from "../../components/ui/Button";
+import { Colors, Spacing } from "../../constants/theme";
+import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingSteps";
 
 function formatMoney(currency: string, amount: number) {
   return `${currency} ${amount.toLocaleString()}`;
@@ -124,138 +129,141 @@ export default function SummaryScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Your Velyqo Profile</Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <OnboardingProgress
+          step={ONBOARDING_STEP.summary}
+          total={ONBOARDING_TOTAL_STEPS}
+        />
 
-      <Text style={styles.item}>Name: {userData.name}</Text>
+        <Text style={styles.title}>Your Velyqo Profile</Text>
 
-      <Text style={styles.item}>Goal: {userData.goal}</Text>
+        <Text style={styles.item}>Name: {userData.name}</Text>
 
-      <Text style={styles.item}>Country: {userData.country}</Text>
+        <Text style={styles.item}>Goal: {userData.goal}</Text>
 
-      <Text style={styles.item}>Current Role: {userData.currentRole}</Text>
+        <Text style={styles.item}>Country: {userData.country}</Text>
 
-      <Text style={styles.item}>
-        Current Salary:{" "}
-        {userData.currentSalary
-          ? `£${Number(userData.currentSalary).toLocaleString()}`
-          : "Not provided"}
-      </Text>
+        <Text style={styles.item}>Current Role: {userData.currentRole}</Text>
 
-      <Text style={styles.item}>Target Role: {userData.targetRole}</Text>
-
-      {userData.startingSituation ? (
         <Text style={styles.item}>
-          Starting situation: {STARTING_SITUATION_LABELS[userData.startingSituation]}
+          Current Salary:{" "}
+          {userData.currentSalary
+            ? `£${Number(userData.currentSalary).toLocaleString()}`
+            : "Not provided"}
         </Text>
-      ) : null}
 
-      {userData.experienceLevel ? (
-        <Text style={styles.item}>
-          Experience: {EXPERIENCE_LEVEL_LABELS[userData.experienceLevel]}
-        </Text>
-      ) : null}
+        <Text style={styles.item}>Target Role: {userData.targetRole}</Text>
 
-      {userData.educationLevel ? (
-        <Text style={styles.item}>
-          Education: {EDUCATION_LEVEL_LABELS[userData.educationLevel]}
-        </Text>
-      ) : null}
-
-      {userData.skills.length > 0 ? (
-        <Text style={styles.item}>Skills: {userData.skills.join(", ")}</Text>
-      ) : null}
-
-      {userData.targetTimeframe ? (
-        <Text style={styles.item}>
-          Target timeframe: {TARGET_TIMEFRAME_LABELS[userData.targetTimeframe]}
-        </Text>
-      ) : null}
-
-      <Text style={styles.item}>
-        Target Salary:{" "}
-        {userData.targetSalary
-          ? `£${Number(userData.targetSalary).toLocaleString()}`
-          : "Not provided"}
-      </Text>
-
-      {increase !== null ? (
-        <Text style={styles.item}>
-          Potential Increase:{" "}
-          {increase >= 0
-            ? `£${increase.toLocaleString()}`
-            : `-£${Math.abs(increase).toLocaleString()}`}
-        </Text>
-      ) : null}
-
-      <Text style={styles.item}>Verified Market Range</Text>
-
-      {targetSalaryBand ? (
-        <>
+        {userData.startingSituation ? (
           <Text style={styles.item}>
-            {formatMoney(targetSalaryBand.currency, targetSalaryBand.low)} –{" "}
-            {formatMoney(targetSalaryBand.currency, targetSalaryBand.high)}
+            Starting situation: {STARTING_SITUATION_LABELS[userData.startingSituation]}
           </Text>
+        ) : null}
 
-          <Text style={styles.provenance}>
-            {targetSalaryBand.dataType.toLowerCase()} data
-            {targetSalaryBand.source ? ` · ${targetSalaryBand.source}` : ""} ·{" "}
-            {targetSalaryBand.confidence}% confidence
+        {userData.experienceLevel ? (
+          <Text style={styles.item}>
+            Experience: {EXPERIENCE_LEVEL_LABELS[userData.experienceLevel]}
           </Text>
-        </>
-      ) : (
-        <Text style={styles.provenance}>
-          No verified market data available for this role yet.
+        ) : null}
+
+        {userData.educationLevel ? (
+          <Text style={styles.item}>
+            Education: {EDUCATION_LEVEL_LABELS[userData.educationLevel]}
+          </Text>
+        ) : null}
+
+        {userData.skills.length > 0 ? (
+          <Text style={styles.item}>Skills: {userData.skills.join(", ")}</Text>
+        ) : null}
+
+        {userData.targetTimeframe ? (
+          <Text style={styles.item}>
+            Target timeframe: {TARGET_TIMEFRAME_LABELS[userData.targetTimeframe]}
+          </Text>
+        ) : null}
+
+        <Text style={styles.item}>
+          Target Salary:{" "}
+          {userData.targetSalary
+            ? `£${Number(userData.targetSalary).toLocaleString()}`
+            : "Not provided"}
         </Text>
-      )}
 
-      <TouchableOpacity style={styles.button} onPress={saveProfile}>
-        <Text style={styles.buttonText}>Create My Career Roadmap</Text>
-      </TouchableOpacity>
-    </View>
+        {increase !== null ? (
+          <Text style={styles.item}>
+            Potential Increase:{" "}
+            {increase >= 0
+              ? `£${increase.toLocaleString()}`
+              : `-£${Math.abs(increase).toLocaleString()}`}
+          </Text>
+        ) : null}
+
+        <Text style={styles.item}>Verified Market Range</Text>
+
+        {targetSalaryBand ? (
+          <>
+            <Text style={styles.item}>
+              {formatMoney(targetSalaryBand.currency, targetSalaryBand.low)} –{" "}
+              {formatMoney(targetSalaryBand.currency, targetSalaryBand.high)}
+            </Text>
+
+            <Text style={styles.provenance}>
+              {targetSalaryBand.dataType.toLowerCase()} data
+              {targetSalaryBand.source ? ` · ${targetSalaryBand.source}` : ""} ·{" "}
+              {targetSalaryBand.confidence}% confidence
+            </Text>
+          </>
+        ) : (
+          <Text style={styles.provenance}>
+            No verified market data available for this role yet.
+          </Text>
+        )}
+
+        <View style={styles.buttonSpacing}>
+          <Button title="Create My Career Roadmap" onPress={saveProfile} />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B1120",
-    padding: 24,
-    justifyContent: "center",
+    backgroundColor: Colors.background,
+  },
+
+  content: {
+    padding: Spacing.lg,
+    paddingBottom: Spacing.xl,
   },
 
   title: {
-    color: "#FFFFFF",
+    color: Colors.text,
     fontSize: 28,
     fontWeight: "700",
-    marginBottom: 32,
+    marginBottom: Spacing.lg,
     textAlign: "center",
   },
 
   item: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    marginBottom: 12,
+    color: Colors.text,
+    fontSize: 16,
+    marginBottom: Spacing.sm,
   },
 
   provenance: {
-    color: "#94A3B8",
+    color: Colors.subtext,
     fontSize: 12,
     lineHeight: 18,
-    marginBottom: 12,
+    marginBottom: Spacing.sm,
   },
 
-  button: {
-    backgroundColor: "#7C3AED",
-    padding: 18,
-    borderRadius: 14,
-    alignItems: "center",
-    marginTop: 30,
-  },
-
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
+  buttonSpacing: {
+    marginTop: Spacing.lg,
   },
 });

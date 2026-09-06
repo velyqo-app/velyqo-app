@@ -1,12 +1,16 @@
 import { router } from "expo-router";
 import { useContext } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity } from "react-native";
 
 import { UserContext } from "../../context/UserContext";
 import {
   EDUCATION_LEVEL_LABELS,
   EducationLevel,
 } from "../../types/careerContext";
+
+import OnboardingProgress from "../../components/onboarding/OnboardingProgress";
+import { Colors, Radius, Spacing } from "../../constants/theme";
+import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingSteps";
 
 const OPTIONS: EducationLevel[] = [
   "gcse",
@@ -41,60 +45,82 @@ export default function EducationScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>
-        What is your highest level of education? (Optional)
-      </Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <OnboardingProgress
+          step={ONBOARDING_STEP.education}
+          total={ONBOARDING_TOTAL_STEPS}
+        />
 
-      {OPTIONS.map((option) => (
-        <TouchableOpacity
-          key={option}
-          style={styles.option}
-          onPress={() => select(option)}
-        >
-          <Text style={styles.optionText}>
-            {EDUCATION_LEVEL_LABELS[option]}
-          </Text>
+        <Text style={styles.title}>
+          What is your highest level of education? (Optional)
+        </Text>
+
+        {OPTIONS.map((option) => (
+          <TouchableOpacity
+            key={option}
+            style={styles.option}
+            activeOpacity={0.85}
+            onPress={() => select(option)}
+          >
+            <Text style={styles.optionText}>
+              {EDUCATION_LEVEL_LABELS[option]}
+            </Text>
+          </TouchableOpacity>
+        ))}
+
+        <TouchableOpacity style={styles.skipButton} onPress={skip}>
+          <Text style={styles.skipText}>Prefer not to say</Text>
         </TouchableOpacity>
-      ))}
-
-      <TouchableOpacity style={styles.skipButton} onPress={skip}>
-        <Text style={styles.skipText}>Prefer not to say</Text>
-      </TouchableOpacity>
-    </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B1120",
-    padding: 24,
-    justifyContent: "center",
+    backgroundColor: Colors.background,
   },
+
+  content: {
+    padding: Spacing.lg,
+    paddingBottom: Spacing.xl,
+  },
+
   title: {
-    color: "#FFFFFF",
+    color: Colors.text,
     fontSize: 28,
     fontWeight: "700",
     textAlign: "center",
-    marginBottom: 32,
+    marginBottom: Spacing.lg,
   },
+
   option: {
-    backgroundColor: "#1E293B",
-    padding: 18,
-    borderRadius: 14,
-    marginBottom: 16,
+    backgroundColor: Colors.card,
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
+
   optionText: {
-    color: "#FFFFFF",
+    color: Colors.text,
     fontSize: 16,
+    fontWeight: "600",
   },
+
   skipButton: {
-    marginTop: 8,
+    marginTop: Spacing.xs,
     alignItems: "center",
   },
+
   skipText: {
-    color: "#A78BFA",
+    color: Colors.primary,
     fontSize: 16,
     fontWeight: "600",
   },

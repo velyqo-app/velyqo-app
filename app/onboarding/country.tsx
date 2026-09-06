@@ -1,8 +1,20 @@
 import { router } from "expo-router";
 import { useContext } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { UserContext } from "../../context/UserContext";
+
+import OnboardingProgress from "../../components/onboarding/OnboardingProgress";
+import { Colors, Radius, Spacing } from "../../constants/theme";
+import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingSteps";
+
+const COUNTRIES = [
+  { emoji: "🇬🇧", label: "United Kingdom" },
+  { emoji: "🇺🇸", label: "United States" },
+  { emoji: "🇨🇦", label: "Canada" },
+  { emoji: "🇦🇺", label: "Australia" },
+  { emoji: "🌍", label: "Other" },
+];
 
 export default function CountryScreen() {
   const { userData, setUserData } = useContext(UserContext);
@@ -17,72 +29,64 @@ export default function CountryScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Which country do you currently live in?</Text>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        <OnboardingProgress
+          step={ONBOARDING_STEP.country}
+          total={ONBOARDING_TOTAL_STEPS}
+        />
 
-      <TouchableOpacity
-        style={styles.option}
-        onPress={() => selectCountry("United Kingdom")}
-      >
-        <Text style={styles.optionText}>🇬🇧 United Kingdom</Text>
-      </TouchableOpacity>
+        <Text style={styles.title}>Which country do you currently live in?</Text>
 
-      <TouchableOpacity
-        style={styles.option}
-        onPress={() => selectCountry("United States")}
-      >
-        <Text style={styles.optionText}>🇺🇸 United States</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.option}
-        onPress={() => selectCountry("Canada")}
-      >
-        <Text style={styles.optionText}>🇨🇦 Canada</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.option}
-        onPress={() => selectCountry("Australia")}
-      >
-        <Text style={styles.optionText}>🇦🇺 Australia</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.option}
-        onPress={() => selectCountry("Other")}
-      >
-        <Text style={styles.optionText}>🌍 Other</Text>
-      </TouchableOpacity>
-    </View>
+        {COUNTRIES.map((entry) => (
+          <TouchableOpacity
+            key={entry.label}
+            style={styles.option}
+            activeOpacity={0.85}
+            onPress={() => selectCountry(entry.label)}
+          >
+            <Text style={styles.optionText}>
+              {entry.emoji} {entry.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B1120",
-    padding: 24,
+    backgroundColor: Colors.background,
+  },
+
+  content: {
+    flex: 1,
+    padding: Spacing.lg,
     justifyContent: "center",
   },
 
   title: {
-    color: "#FFFFFF",
+    color: Colors.text,
     fontSize: 28,
     fontWeight: "700",
     textAlign: "center",
-    marginBottom: 32,
+    marginBottom: Spacing.lg,
   },
 
   option: {
-    backgroundColor: "#1E293B",
-    padding: 18,
-    borderRadius: 14,
-    marginBottom: 16,
+    backgroundColor: Colors.card,
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
 
   optionText: {
-    color: "#FFFFFF",
+    color: Colors.text,
     fontSize: 16,
+    fontWeight: "600",
   },
 });
