@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { findCachedRoadmap } from "./useRoadmap";
 import { useProfile } from "./useProfile";
@@ -80,66 +81,31 @@ export function useDashboard() {
 
   const [missionLoading, setMissionLoading] = useState(true);
 
+  // Step 8 fix: mission selection must refresh on focus, not just on
+  // mount/profile-field change. Step 7's evidence flow can change a
+  // capability's status/priority from OUTSIDE Home (mission-complete.tsx),
+  // so without this, returning to Home after completing a capability
+  // mission showed the just-completed mission again — a stale "Next Move"
+  // — even though useProgress (below) already correctly refreshed
+  // readiness/streak on the same return. hasLoadedMissionOnce follows the
+  // exact Phase 7 pattern already used by useProgress/useCapabilityGaps:
+  // only the very first load shows full loading; every later focus
+  // refreshes silently, so Home never flashes a full-screen loader on an
+  // ordinary refocus.
+  const hasLoadedMissionOnce = useRef(false);
+
   useEffect(() => {
-    if (profileLoading) {
-      return;
-    }
+    hasLoadedMissionOnce.current = false;
+  }, [targetRole]);
 
-    if (profileError) {
-      const mission = fallbackMission("", "", "");
-      setMissionInfo({
-        mission,
-        nextMilestone: mission.title,
-        estimatedJourney: null,
-        capabilityGapId: null,
-        capabilityName: null,
-      });
-      setMissionLoading(false);
-      return;
-    }
-
-    let active = true;
-
-    setMissionLoading(true);
-
-    const loadMission = async () => {
-      const [roadmap, capabilityMission] = await Promise.all([
-        findCachedRoadmap(userData),
-        userData.userId
-          ? selectCapabilityMission(userData.userId, targetRole)
-          : Promise.resolve(null),
-      ]);
-
-      if (!active) {
+  useFocusEffect(
+    useCallback(() => {
+      if (profileLoading) {
         return;
       }
 
-      const estimatedJourney = roadmap?.estimatedJourney ?? null;
-
-      if (capabilityMission) {
-        setMissionInfo({
-          mission: capabilityMission.mission,
-          nextMilestone: capabilityMission.mission.title,
-          estimatedJourney,
-          capabilityGapId: capabilityMission.capabilityGapId,
-          capabilityName: capabilityMission.capabilityName,
-        });
-      } else if (roadmap && roadmap.steps.length > 0) {
-        const step = roadmap.steps[0];
-        const stepsTotal = roadmap.estimatedJourney?.stepsTotal;
-
-        setMissionInfo({
-          mission: missionFromRoadmapStep(step),
-          nextMilestone: stepsTotal
-            ? `${step.title} (Step ${step.order} of ${stepsTotal})`
-            : step.title,
-          estimatedJourney,
-          capabilityGapId: null,
-          capabilityName: null,
-        });
-      } else {
-        const mission = fallbackMission(targetRole, currentRole, startingSituation);
-
+      if (profileError) {
+        const mission = fallbackMission("", "", "");
         setMissionInfo({
           mission,
           nextMilestone: mission.title,
@@ -147,33 +113,94 @@ export function useDashboard() {
           capabilityGapId: null,
           capabilityName: null,
         });
+        setMissionLoading(false);
+        hasLoadedMissionOnce.current = true;
+        return;
       }
 
-      setMissionLoading(false);
-    };
+      let active = true;
 
-    loadMission();
+      const showFullLoading = !hasLoadedMissionOnce.current;
 
-    return () => {
-      active = false;
-    };
-  }, [
-    profileLoading,
-    profileError,
-    currentRole,
-    currentOccupationId,
-    currentSalary,
-    targetRole,
-    targetOccupationId,
-    targetSalary,
-    country,
-    goal,
-    startingSituation,
-    experienceLevel,
-    educationLevel,
-    skills,
-    targetTimeframe,
-  ]);
+      if (showFullLoading) {
+        setMissionLoading(true);
+      }
+
+      const loadMission = async () => {
+        const [roadmap, capabilityMission] = await Promise.all([
+          findCachedRoadmap(userData),
+          userData.userId
+            ? selectCapabilityMission(userData.userId, targetRole)
+            : Promise.resolve(null),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        hasLoadedMissionOnce.current = true;
+
+        const estimatedJourney = roadmap?.estimatedJourney ?? null;
+
+        if (capabilityMission) {
+          setMissionInfo({
+            mission: capabilityMission.mission,
+            nextMilestone: capabilityMission.mission.title,
+            estimatedJourney,
+            capabilityGapId: capabilityMission.capabilityGapId,
+            capabilityName: capabilityMission.capabilityName,
+          });
+        } else if (roadmap && roadmap.steps.length > 0) {
+          const step = roadmap.steps[0];
+          const stepsTotal = roadmap.estimatedJourney?.stepsTotal;
+
+          setMissionInfo({
+            mission: missionFromRoadmapStep(step),
+            nextMilestone: stepsTotal
+              ? `${step.title} (Step ${step.order} of ${stepsTotal})`
+              : step.title,
+            estimatedJourney,
+            capabilityGapId: null,
+            capabilityName: null,
+          });
+        } else {
+          const mission = fallbackMission(targetRole, currentRole, startingSituation);
+
+          setMissionInfo({
+            mission,
+            nextMilestone: mission.title,
+            estimatedJourney: null,
+            capabilityGapId: null,
+            capabilityName: null,
+          });
+        }
+
+        setMissionLoading(false);
+      };
+
+      loadMission();
+
+      return () => {
+        active = false;
+      };
+    }, [
+      profileLoading,
+      profileError,
+      currentRole,
+      currentOccupationId,
+      currentSalary,
+      targetRole,
+      targetOccupationId,
+      targetSalary,
+      country,
+      goal,
+      startingSituation,
+      experienceLevel,
+      educationLevel,
+      skills,
+      targetTimeframe,
+    ]),
+  );
 
   const dashboard = useMemo(() => {
     const recommendation = getRecommendation(userData.goal);

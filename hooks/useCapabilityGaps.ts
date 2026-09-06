@@ -41,7 +41,16 @@ async function loadOrCreateAssessment(
   const rankedExisting = await applyPriorityRanking(userId, targetRole);
 
   if (rankedExisting.error !== null) {
-    return { data: null, error: rankedExisting.error };
+    // rankedExisting.error is an internal/backend string (e.g. a raw
+    // Postgrest error message) never meant for a user to read directly —
+    // logged for debugging, replaced with the same honest, generic wording
+    // used by every other failure branch in this function.
+    console.warn("Capability gap read failed:", rankedExisting.error);
+
+    return {
+      data: null,
+      error: "We couldn't load your capability assessment. Please try again.",
+    };
   }
 
   if (rankedExisting.data.length > 0) {
@@ -64,7 +73,15 @@ async function loadOrCreateAssessment(
   const saved = await saveCapabilityAssessment(userId, targetRole, generated);
 
   if (saved.error !== null) {
-    return { data: null, error: saved.error };
+    // Same as above — saved.error is an internal string (e.g.
+    // "refusing_to_persist_out_of_bounds_count (...)"), not user-facing
+    // copy.
+    console.warn("Capability assessment save failed:", saved.error);
+
+    return {
+      data: null,
+      error: "We couldn't generate your capability assessment. Please try again.",
+    };
   }
 
   // Pass the true AI generation order (still available here, before it gets
