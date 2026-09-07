@@ -17,6 +17,55 @@ import LoadingScreen from "../../components/ui/LoadingScreen";
 
 import { Colors } from "../../constants/theme";
 import { useDashboard } from "../../hooks/useDashboard";
+import { NextMove } from "../../types/nextMove";
+
+/**
+ * "Why this matters" copy for the two NextMove types with no mission
+ * attached — Home-specific display text, not part of the engine's own
+ * deterministic decision (nextMoveEngine.ts never invents display copy
+ * beyond its own title/description). Kept here, not in the engine, since
+ * this is presentation, not a decision.
+ */
+function getImpactText(nextMove: NextMove): string {
+  switch (nextMove.type) {
+    case "capability_gap":
+    case "roadmap":
+    case "generic":
+      return nextMove.mission.impact;
+    case "needs_destination":
+      return "VELYQO can only point you toward useful next steps once you've set a target role.";
+    case "up_to_date":
+      return "You're caught up — check back after your next mission or roadmap update.";
+  }
+}
+
+function getEstimatedTime(nextMove: NextMove): string | undefined {
+  switch (nextMove.type) {
+    case "capability_gap":
+    case "roadmap":
+    case "generic":
+      return nextMove.mission.estimatedTime;
+    case "needs_destination":
+    case "up_to_date":
+      return undefined;
+  }
+}
+
+/** Undefined falls back to NextMoveCard's own default ("▶ Start") for a
+ * real mission — only the two non-mission types get an explicit, honest
+ * label instead of implying there's something to start. */
+function getActionLabel(nextMove: NextMove): string | undefined {
+  switch (nextMove.type) {
+    case "needs_destination":
+      return "Set destination";
+    case "up_to_date":
+      return "View Journey";
+    case "capability_gap":
+    case "roadmap":
+    case "generic":
+      return undefined;
+  }
+}
 
 export default function DashboardScreen() {
   const { loading, error, retry, userData, progress, momentum, careerBrief } =
@@ -24,25 +73,43 @@ export default function DashboardScreen() {
 
   const goToJourney = () => router.push("/timeline");
 
-  const startMission = () => {
-    // missionDescription/capabilityGapId/capabilityName are only added when
-    // Today's Mission is the Tier 0 capability mission — Coach re-derives
-    // its own title+description for the existing roadmap/generic mission
-    // pipeline (see ai-coach.tsx), so nothing else needs to change there.
-    const params: Record<string, string> = {
-      mission: careerBrief.mission.title,
-    };
+  // Routes each NextMove type to its correct existing destination. Never a
+  // new route: capability_gap/roadmap/generic all still go to the existing
+  // Coach screen (capability_gap alone threads missionDescription/
+  // capabilityGapId/capabilityName through, exactly as before — Coach
+  // re-derives its own title+description for the roadmap/generic pipeline,
+  // so nothing else needs to change there). needs_destination goes to the
+  // existing Profile route; up_to_date goes to the existing Journey route —
+  // neither ever fabricates a mission just to keep a "Start" action.
+  const handleNextMoveAction = () => {
+    const { nextMove } = careerBrief;
 
-    if (careerBrief.capabilityGapId) {
-      params.missionDescription = careerBrief.mission.description;
-      params.capabilityGapId = careerBrief.capabilityGapId;
-      params.capabilityName = careerBrief.capabilityName ?? "";
+    switch (nextMove.type) {
+      case "capability_gap":
+        router.push({
+          pathname: "/ai-coach",
+          params: {
+            mission: nextMove.mission.title,
+            missionDescription: nextMove.mission.description,
+            capabilityGapId: nextMove.capabilityGapId,
+            capabilityName: nextMove.capabilityName,
+          },
+        });
+        return;
+      case "roadmap":
+      case "generic":
+        router.push({
+          pathname: "/ai-coach",
+          params: { mission: nextMove.mission.title },
+        });
+        return;
+      case "needs_destination":
+        router.push("/profile");
+        return;
+      case "up_to_date":
+        router.push("/timeline");
+        return;
     }
-
-    router.push({
-      pathname: "/ai-coach",
-      params,
-    });
   };
 
   const goToCoach = () => router.push("/ai-coach");
@@ -104,10 +171,11 @@ export default function DashboardScreen() {
       />
 
       <NextMoveCard
-        title={careerBrief.mission.title}
-        description={careerBrief.mission.description}
-        estimatedTime={careerBrief.estimatedTime}
-        onStart={startMission}
+        title={careerBrief.nextMove.title}
+        description={careerBrief.nextMove.description}
+        estimatedTime={getEstimatedTime(careerBrief.nextMove)}
+        actionLabel={getActionLabel(careerBrief.nextMove)}
+        onStart={handleNextMoveAction}
       />
 
       <JourneySummaryCard
@@ -118,7 +186,7 @@ export default function DashboardScreen() {
         onPress={goToJourney}
       />
 
-      <WhyThisMattersCard impact={careerBrief.impact} />
+      <WhyThisMattersCard impact={getImpactText(careerBrief.nextMove)} />
 
       <MomentumCard
         momentum={momentum}

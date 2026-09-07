@@ -7,7 +7,14 @@ import Card from "../ui/Card";
 interface Props {
   title: string;
   description: string;
-  estimatedTime: string;
+  /** Absent for a NextMove with no mission attached (needs_destination /
+   * up_to_date) — the time row is skipped entirely rather than showing a
+   * blank or fabricated duration. */
+  estimatedTime?: string;
+  /** Defaults to "▶ Start" for a real mission. A caller representing a
+   * non-mission NextMove (e.g. "Set destination", "View Journey") should
+   * pass an explicit, honest label instead. */
+  actionLabel?: string;
   onStart: () => void;
 }
 
@@ -22,6 +29,7 @@ export default function NextMoveCard({
   title,
   description,
   estimatedTime,
+  actionLabel = "▶ Start",
   onStart,
 }: Props) {
   return (
@@ -32,12 +40,14 @@ export default function NextMoveCard({
 
       <Text style={styles.description}>{description}</Text>
 
-      <View style={styles.footer}>
-        <Text style={styles.time}>⏱ {estimatedTime}</Text>
-      </View>
+      {estimatedTime ? (
+        <View style={styles.footer}>
+          <Text style={styles.time}>⏱ {estimatedTime}</Text>
+        </View>
+      ) : null}
 
       <View style={styles.buttonSpacing}>
-        <Button title="▶ Start" onPress={onStart} />
+        <Button title={actionLabel} onPress={onStart} />
       </View>
     </Card>
   );

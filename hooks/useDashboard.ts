@@ -5,17 +5,31 @@ import { findCachedRoadmap } from "./useRoadmap";
 import { useProfile } from "./useProfile";
 import { useProgress } from "./useProgress";
 
-import { selectCapabilityMission } from "../services/capabilityMissionService";
-import {
-  fallbackMission,
-  missionFromRoadmapStep,
-} from "../services/careerMissionService";
+import { getCareerStateWithSummary } from "../services/careerStateService";
 import { getMomentum } from "../services/momentumService";
+import { selectNextMove } from "../services/nextMoveEngine";
 
 import { getRecommendation } from "../services/recommendationService";
 
-import { Mission } from "../types/mission";
+import { NextMove } from "../types/nextMove";
 import { RoadmapJourneyEstimate } from "../types/roadmap";
+
+/**
+ * Never actually rendered as-is: dashboard.tsx only reaches NextMoveCard
+ * once `loading` is false, and the three branches below that use this
+ * placeholder (initial state, profileError, missing userId) all also set
+ * `missionLoading` to false without ever being the FIRST thing the screen
+ * shows in practice (profileError routes to the screen's own dedicated
+ * error view instead). Shaped as "up_to_date" — not "needs_destination" —
+ * specifically so that IF it were ever shown, tapping it goes to Journey
+ * (always a safe, reasonable destination) rather than incorrectly telling
+ * a user who already has a target role that they need to set one.
+ */
+const PLACEHOLDER_NEXT_MOVE: NextMove = {
+  type: "up_to_date",
+  title: "We couldn't load your next move",
+  description: "Please check your connection and try again.",
+};
 
 export function useDashboard() {
   const {
@@ -43,55 +57,30 @@ export function useDashboard() {
     targetTimeframe,
   } = userData;
 
-  // Today's Mission: Tier 0 (new) uses the user's single highest-priority
-  // persisted capability gap when one exists — a deterministic, templated
-  // mission, never a new AI call (see capabilityMissionService — it reuses
-  // Step 5's read-only priority service, it does not generate an
-  // assessment). Tier 1 derives it from the real next step of an
-  // already-cached roadmap (read-only — never builds or generates one, and
-  // never a new AI call either); Tier 2 falls back to a role-aware but
-  // honestly generic mission when no usable cached roadmap exists yet. Any
-  // Tier 0 failure (no target role, no assessment yet, read error) falls
-  // through silently to Tier 1/2 exactly as before — capabilityMissionService
-  // never throws and never returns an error Home needs to surface.
-  const [missionInfo, setMissionInfo] = useState<{
-    mission: Mission;
-    nextMilestone: string;
-    // Null whenever no cached roadmap exists yet (the fallback-mission
-    // branches below) — Home's Journey summary reads this to show an honest
-    // "no roadmap yet" state rather than a guessed duration. Independent of
-    // which tier supplies `mission` — the roadmap either exists or it
-    // doesn't, regardless of what Today's Mission happens to be.
-    estimatedJourney: RoadmapJourneyEstimate | null;
-    // Non-null only when `mission` is the Tier 0 capability mission — carried
-    // through Home → Coach → Mission Complete so a future step can attach
-    // evidence to the right capability_gaps row.
-    capabilityGapId: string | null;
-    capabilityName: string | null;
-  }>(() => {
-    const mission = fallbackMission("", "", "");
-    return {
-      mission,
-      nextMilestone: mission.title,
-      estimatedJourney: null,
-      capabilityGapId: null,
-      capabilityName: null,
-    };
-  });
+  // Today's Mission is now selected entirely by nextMoveEngine.selectNextMove
+  // — the single source of truth for the capability_gap / roadmap / generic /
+  // needs_destination / up_to_date decision. This hook's only remaining job
+  // is to gather that function's two inputs (CareerState + CareerStateSummary
+  // via getCareerStateWithSummary, and the existing cached Roadmap via
+  // findCachedRoadmap — unchanged, still cache-only, never generates) and
+  // hand them to the engine. No mission-selection or capability-ranking
+  // logic lives in this file anymore.
+  const [nextMove, setNextMove] = useState<NextMove>(PLACEHOLDER_NEXT_MOVE);
+
+  // Independent of nextMove: JourneySummaryCard shows OVERALL roadmap
+  // progress, not "today's mission" — it must keep reflecting the real
+  // cached roadmap's estimate regardless of which tier the engine picked.
+  const [estimatedJourney, setEstimatedJourney] =
+    useState<RoadmapJourneyEstimate | null>(null);
 
   const [missionLoading, setMissionLoading] = useState(true);
 
-  // Step 8 fix: mission selection must refresh on focus, not just on
-  // mount/profile-field change. Step 7's evidence flow can change a
-  // capability's status/priority from OUTSIDE Home (mission-complete.tsx),
-  // so without this, returning to Home after completing a capability
-  // mission showed the just-completed mission again — a stale "Next Move"
-  // — even though useProgress (below) already correctly refreshed
-  // readiness/streak on the same return. hasLoadedMissionOnce follows the
-  // exact Phase 7 pattern already used by useProgress/useCapabilityGaps:
-  // only the very first load shows full loading; every later focus
-  // refreshes silently, so Home never flashes a full-screen loader on an
-  // ordinary refocus.
+  // Step 8's fix, preserved unchanged: mission selection must refresh on
+  // focus, not just on mount/profile-field change, since Step 7's evidence
+  // flow can change a capability's status/priority from OUTSIDE Home
+  // (mission-complete.tsx). hasLoadedMissionOnce follows the exact Phase 7
+  // pattern already used by useProgress/useCapabilityGaps: only the very
+  // first load shows full loading; every later focus refreshes silently.
   const hasLoadedMissionOnce = useRef(false);
 
   useEffect(() => {
@@ -105,14 +94,20 @@ export function useDashboard() {
       }
 
       if (profileError) {
-        const mission = fallbackMission("", "", "");
-        setMissionInfo({
-          mission,
-          nextMilestone: mission.title,
-          estimatedJourney: null,
-          capabilityGapId: null,
-          capabilityName: null,
-        });
+        setNextMove(PLACEHOLDER_NEXT_MOVE);
+        setEstimatedJourney(null);
+        setMissionLoading(false);
+        hasLoadedMissionOnce.current = true;
+        return;
+      }
+
+      // Should not be reachable in practice — this screen only renders
+      // behind the authenticated route guard, which implies a session —
+      // but userId is nullable on UserData until a session resolves, so
+      // this satisfies that honestly rather than asserting it away.
+      if (!userData.userId) {
+        setNextMove(PLACEHOLDER_NEXT_MOVE);
+        setEstimatedJourney(null);
         setMissionLoading(false);
         hasLoadedMissionOnce.current = true;
         return;
@@ -126,12 +121,10 @@ export function useDashboard() {
         setMissionLoading(true);
       }
 
-      const loadMission = async () => {
-        const [roadmap, capabilityMission] = await Promise.all([
+      const loadNextMove = async () => {
+        const [roadmap, careerStateResult] = await Promise.all([
           findCachedRoadmap(userData),
-          userData.userId
-            ? selectCapabilityMission(userData.userId, targetRole)
-            : Promise.resolve(null),
+          getCareerStateWithSummary(userData.userId as string),
         ]);
 
         if (!active) {
@@ -140,45 +133,36 @@ export function useDashboard() {
 
         hasLoadedMissionOnce.current = true;
 
-        const estimatedJourney = roadmap?.estimatedJourney ?? null;
+        if (careerStateResult.error !== null) {
+          console.warn(
+            "Home: CareerState read failed:",
+            careerStateResult.error,
+          );
 
-        if (capabilityMission) {
-          setMissionInfo({
-            mission: capabilityMission.mission,
-            nextMilestone: capabilityMission.mission.title,
-            estimatedJourney,
-            capabilityGapId: capabilityMission.capabilityGapId,
-            capabilityName: capabilityMission.capabilityName,
-          });
-        } else if (roadmap && roadmap.steps.length > 0) {
-          const step = roadmap.steps[0];
-          const stepsTotal = roadmap.estimatedJourney?.stepsTotal;
+          // Silent-refresh failure: leave whatever is already on screen
+          // alone rather than overwrite a working Next Move with a guess —
+          // the same principle useCapabilityGaps already established. Only
+          // the very first load (nothing shown yet) falls back to the
+          // placeholder.
+          if (showFullLoading) {
+            setNextMove(PLACEHOLDER_NEXT_MOVE);
+            setEstimatedJourney(null);
+          }
 
-          setMissionInfo({
-            mission: missionFromRoadmapStep(step),
-            nextMilestone: stepsTotal
-              ? `${step.title} (Step ${step.order} of ${stepsTotal})`
-              : step.title,
-            estimatedJourney,
-            capabilityGapId: null,
-            capabilityName: null,
-          });
-        } else {
-          const mission = fallbackMission(targetRole, currentRole, startingSituation);
-
-          setMissionInfo({
-            mission,
-            nextMilestone: mission.title,
-            estimatedJourney: null,
-            capabilityGapId: null,
-            capabilityName: null,
-          });
+          setMissionLoading(false);
+          return;
         }
 
+        const { state, summary } = careerStateResult.data;
+
+        const move = selectNextMove(state, summary, roadmap);
+
+        setNextMove(move);
+        setEstimatedJourney(roadmap?.estimatedJourney ?? null);
         setMissionLoading(false);
       };
 
-      loadMission();
+      loadNextMove();
 
       return () => {
         active = false;
@@ -212,18 +196,13 @@ export function useDashboard() {
       momentum,
 
       careerBrief: {
-        mission: missionInfo.mission,
-        estimatedTime: missionInfo.mission.estimatedTime,
-        nextMilestone: missionInfo.nextMilestone,
-        impact: missionInfo.mission.impact,
-        estimatedJourney: missionInfo.estimatedJourney,
-        capabilityGapId: missionInfo.capabilityGapId,
-        capabilityName: missionInfo.capabilityName,
+        nextMove,
+        estimatedJourney,
 
         readiness: progress.career_readiness,
       },
     };
-  }, [userData, progress, missionInfo]);
+  }, [userData, progress, nextMove, estimatedJourney]);
 
   return {
     loading: profileLoading || progressLoading || missionLoading,
