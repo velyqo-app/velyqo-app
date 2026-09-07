@@ -6,6 +6,28 @@ export type CreateCareerCheckinResult =
   | { data: null; error: string };
 
 /**
+ * A single career_checkins row by id, scoped to the given user — added in
+ * Phase 10.1 Step 7 as the read the confirmation/orchestration layer needs
+ * (deferred in Step 4: "no read function... until a real consumer
+ * exists"). Mirrors capabilityGapService.getCapabilityGapById exactly:
+ * `.maybeSingle()`, scoped by both `id` and `user_id` so "doesn't exist"
+ * and "exists but belongs to a different user" are indistinguishable from
+ * here — RLS already makes those two cases identical, and every caller
+ * that needs this (careerCheckinConfirmationService's validation
+ * boundary, in particular) should treat both cases the same way: refuse
+ * to proceed. Read-only, like every other read in this file.
+ */
+export async function getCareerCheckinById(userId: string, checkinId: string) {
+  return await supabase
+    .from("career_checkins")
+    .select("*")
+    .eq("id", checkinId)
+    .eq("user_id", userId)
+    .returns<CareerCheckin[]>()
+    .maybeSingle();
+}
+
+/**
  * Persists one completed Career Check-in — and does exactly that, nothing
  * else. Mirrors capabilityPersistenceService.saveCapabilityAssessment's
  * own precedent: a single, narrow persistence function, not an
