@@ -2,7 +2,9 @@ import { UserData } from "../context/UserContext";
 import { invalidateCachedRoadmap } from "../hooks/useRoadmap";
 import { getCareerCheckinById } from "./careerCheckinService";
 import { interpretCareerCheckin } from "./careerCheckinInterpretationService";
+import { getCapabilityGapById } from "./capabilityGapService";
 import { recordProfileSnapshotEvidence } from "./capabilityEvidenceService";
+import { recalculateCapabilityStatus } from "./capabilityStatusService";
 import { createJournalEntry } from "./journalService";
 import { getProfile, updateProfile } from "./profileService";
 import { supabase } from "../lib/supabase";
@@ -644,6 +646,50 @@ async function verifyAndApplyProfileDecisions(
 }
 
 /**
+ * Phase 10.2 — recalculates ONE capability's status after a Career Check-in
+ * evidence decision has been successfully resolved this call (see the two
+ * call sites in verifyAndApplyEvidenceDecisions below). Deliberately called
+ * for BOTH outcomes of that resolution — a fresh insert and a decision whose
+ * evidence row already existed — not only a fresh insert: recalculation
+ * reads a live, current evidence count and is itself idempotent (a no-op
+ * write when nothing changed), so re-running it on an already-existing row
+ * is safe and correct, not merely convenient (Phase 10.2 Step 1 §G/§H).
+ *
+ * Mirrors mission-complete.tsx's recordCapabilityEvidence: a failure here —
+ * whether the gap lookup or the recalculation itself — is logged and never
+ * propagated. The evidence write this follows has already genuinely
+ * succeeded (or was already applied) by the time this runs; nothing here
+ * may turn that into a "failed" decision. An unresolved status here simply
+ * self-heals on the capability's next successful recalculation.
+ */
+async function recalculateCapabilityStatusForEvidence(
+  userId: string,
+  capabilityGapId: string,
+): Promise<void> {
+  const { data: gap, error: gapError } = await getCapabilityGapById(
+    userId,
+    capabilityGapId,
+  );
+
+  if (gapError || !gap) {
+    console.warn(
+      "CareerCheckinConfirmation: capability status recalculation skipped — gap not found or not owned by user:",
+      gapError?.message,
+    );
+    return;
+  }
+
+  const statusResult = await recalculateCapabilityStatus(userId, gap);
+
+  if (statusResult.error !== null) {
+    console.warn(
+      "CareerCheckinConfirmation: capability status recalculation failed (evidence is preserved, will be picked up by a later recalculation):",
+      statusResult.error,
+    );
+  }
+}
+
+/**
  * Verifies (and, where needed, performs) every new_evidence decision as an
  * independent capability_evidence insert. Idempotency is content-based,
  * not bookkeeping-based: before inserting, checks whether a row already
@@ -656,6 +702,14 @@ async function verifyAndApplyProfileDecisions(
  * A confirmed evidence decision with no capabilityGapId is "applied"
  * immediately — nothing to write, a legitimate, honest "journaled only"
  * outcome, never an error.
+ *
+ * Phase 10.2: every decision that resolves to "applied" against a real
+ * capabilityGapId (whether newly written or already existing) triggers a
+ * capability status recalculation for that one capability — see
+ * recalculateCapabilityStatusForEvidence above. A decision that resolves to
+ * "failed" (the existence check itself failing, or the insert failing)
+ * never triggers one — a failed evidence write must never cause a status
+ * update, by construction of this control flow.
  */
 async function verifyAndApplyEvidenceDecisions(
   userId: string,
@@ -701,6 +755,7 @@ async function verifyAndApplyEvidenceDecisions(
 
     if (existing && existing.length > 0) {
       result.set(decision.reportIndex, "applied");
+      await recalculateCapabilityStatusForEvidence(userId, decision.capabilityGapId);
       continue;
     }
 
@@ -715,9 +770,12 @@ async function verifyAndApplyEvidenceDecisions(
         "CareerCheckinConfirmation: evidence write failed:",
         evidenceResult.error,
       );
+      result.set(decision.reportIndex, "failed");
+      continue;
     }
 
-    result.set(decision.reportIndex, evidenceResult.error ? "failed" : "applied");
+    result.set(decision.reportIndex, "applied");
+    await recalculateCapabilityStatusForEvidence(userId, decision.capabilityGapId);
   }
 
   return result;

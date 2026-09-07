@@ -28,6 +28,45 @@ export async function getMissionCompletionEvidence(
     .returns<CapabilityEvidence[]>();
 }
 
+/**
+ * Phase 10.2 activation cutoff — the exact, hard-coded instant self-reported
+ * (Career Check-in) evidence became eligible to affect capability status.
+ *
+ * "No retroactive backfill" (Phase 10.2 Step 1, approved) means literally
+ * this: any profile_snapshot row created before this instant — including
+ * every one created during Step 7/7.1/8 testing and any real usage before
+ * Phase 10.2 shipped — is PERMANENTLY excluded from
+ * getProfileSnapshotEvidence's result, for the life of this constant. It is
+ * a fixed point in time, not "now" and not an install timestamp — it must
+ * NEVER be replaced with a dynamic Date computation, and must not be edited
+ * casually: changing it changes what "no backfill" means for every existing
+ * row already in the database.
+ */
+const PHASE_10_2_ACTIVATION_CUTOFF = "2026-09-07T00:00:00.000Z";
+
+/**
+ * All post-activation profile_snapshot evidence rows for a capability,
+ * scoped to the owning user — mirrors getMissionCompletionEvidence's exact
+ * shape, with one addition: rows created before PHASE_10_2_ACTIVATION_CUTOFF
+ * are excluded, per the approved no-backfill decision above. Evidence rows
+ * before the cutoff are never deleted or altered — they are simply outside
+ * what this read (and therefore computeStatusFromProfileSnapshotEvidence)
+ * ever counts.
+ */
+export async function getProfileSnapshotEvidence(
+  userId: string,
+  capabilityGapId: string,
+) {
+  return await supabase
+    .from("capability_evidence")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("capability_gap_id", capabilityGapId)
+    .eq("source_type", PROFILE_SNAPSHOT_SOURCE)
+    .gte("created_at", PHASE_10_2_ACTIVATION_CUTOFF)
+    .returns<CapabilityEvidence[]>();
+}
+
 export type RecordEvidenceResult =
   | { data: CapabilityEvidence; created: true; error: null }
   // Not an error — evidence for this exact journal entry already existed,
@@ -122,15 +161,14 @@ export type RecordProfileSnapshotEvidenceResult =
  * "profile_snapshot", always strength "supports_developing" — self-
  * reported evidence is never written at "supports_strength" directly.
  *
- * Per this file's own getMissionCompletionEvidence, used by
- * capabilityStatusService.recalculateCapabilityStatus, filtering strictly
- * on `source_type === "mission_completion"`, this evidence is
- * structurally invisible to status recalculation: writing this row can
- * never move a capability toward "developing"/"strength" under the
- * current status system, by construction of code this function does not
- * touch. (Whether profile_snapshot evidence should ever count toward
- * status is a separate, future, explicit product decision — this function
- * does not make that decision, and today's status logic does not either.)
+ * Phase 10.2: a row written here now CAN affect capability status — see
+ * getProfileSnapshotEvidence and capabilityStatusService's
+ * computeStatusFromProfileSnapshotEvidence/recalculateCapabilityStatus —
+ * but only once it is at or after PHASE_10_2_ACTIVATION_CUTOFF (this
+ * function does not check that cutoff itself; it is applied entirely on
+ * the read side), and even then it can only ever escalate a capability to
+ * "developing", never to "strength" (see that function's own doc comment
+ * for why "strength" is structurally unreachable from this evidence kind).
  *
  * No journal_entry_id — self-reported evidence has no mission-completion
  * journal entry to link back to. The Career Check-in's own journal entry

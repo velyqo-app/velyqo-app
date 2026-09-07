@@ -1,4 +1,7 @@
-import { getMissionCompletionEvidence } from "./capabilityEvidenceService";
+import {
+  getMissionCompletionEvidence,
+  getProfileSnapshotEvidence,
+} from "./capabilityEvidenceService";
 import { applyPriorityRanking } from "./capabilityPriorityService";
 import { supabase } from "../lib/supabase";
 import { CapabilityGap, CapabilityStatus } from "../types/capability";
@@ -42,18 +45,68 @@ export function computeStatusFromEvidence(
   return currentStatus;
 }
 
+/**
+ * Phase 10.2 — self-reported (Career Check-in) evidence's own escalation
+ * rule, applied as a second, independent step after computeStatusFromEvidence
+ * above (see recalculateCapabilityStatus). Deliberately lower-ceilinged than
+ * that function:
+ *
+ * - Already "strength" OR "developing" is returned unchanged — this evidence
+ *   kind can never move a capability any further, and this is also exactly
+ *   what makes "strength" structurally unreachable from here: a capability
+ *   can only still be below "developing" when this function's own count
+ *   check runs, and that check's own ceiling is "developing" itself.
+ * - 2+ qualifying (post-activation, see getProfileSnapshotEvidence) events
+ *   -> "developing".
+ * - 0 or 1 -> the current status, unchanged.
+ *
+ * Composed with computeStatusFromEvidence, this guarantees self-reported
+ * evidence can never independently or jointly produce "strength" — the only
+ * path to "strength" remains computeStatusFromEvidence's own, unchanged,
+ * mission-evidence-only threshold (Phase 10.2 Step 1, approved).
+ */
+export function computeStatusFromProfileSnapshotEvidence(
+  currentStatus: CapabilityStatus,
+  qualifyingProfileSnapshotCount: number,
+): CapabilityStatus {
+  if (currentStatus === "strength" || currentStatus === "developing") {
+    return currentStatus;
+  }
+
+  if (qualifyingProfileSnapshotCount >= 2) {
+    return "developing";
+  }
+
+  return currentStatus;
+}
+
 export type RecalculateStatusResult =
   | { statusChanged: false; error: null }
   | { statusChanged: true; newStatus: CapabilityStatus; error: null }
   | { statusChanged: false; error: string };
 
 /**
- * Recalculates and persists ONE capability's status from its current
- * qualifying mission-completion evidence, then — only if that changes its
- * status away from "priority_gap" — reflows the user's remaining
- * priority_gap ranks back to contiguous via capabilityPriorityService
- * (Step 5, reused unmodified in logic; only its early-exit gate gained an
- * opt-in `force` bypass — see that file).
+ * Recalculates and persists ONE capability's status from ALL currently-
+ * available evidence, then — only if that changes its status away from
+ * "priority_gap" — reflows the user's remaining priority_gap ranks back to
+ * contiguous via capabilityPriorityService (Step 5, reused unmodified in
+ * logic; only its early-exit gate gained an opt-in `force` bypass — see
+ * that file).
+ *
+ * Mission-completion evidence is read and applied first, via
+ * computeStatusFromEvidence — entirely unchanged from before Phase 10.2. A
+ * failure reading it aborts the whole recalculation exactly as it always
+ * has, so existing mission-evidence behaviour (including its own failure
+ * mode) is preserved exactly.
+ *
+ * Self-reported (profile_snapshot) evidence is then applied as a second,
+ * independent step via computeStatusFromProfileSnapshotEvidence. A failure
+ * reading THAT is deliberately non-fatal: logged, and treated as zero
+ * qualifying events for this call only, so a profile_snapshot-side read
+ * problem can never block or change a purely mission-driven status result —
+ * it simply self-heals on the next successful recalculation, the same
+ * self-healing precedent this function already relies on for the priority
+ * reflow warning below.
  *
  * Writes nothing if the computed status equals the row's current status —
  * a no-op recalculation never touches updated_at and never triggers a
@@ -66,19 +119,36 @@ export async function recalculateCapabilityStatus(
   userId: string,
   capabilityGap: CapabilityGap,
 ): Promise<RecalculateStatusResult> {
-  const { data: evidence, error: evidenceError } =
+  const { data: missionEvidence, error: missionEvidenceError } =
     await getMissionCompletionEvidence(userId, capabilityGap.id);
 
-  if (evidenceError || !evidence) {
+  if (missionEvidenceError || !missionEvidence) {
     return {
       statusChanged: false,
-      error: evidenceError?.message ?? "evidence_read_failed",
+      error: missionEvidenceError?.message ?? "evidence_read_failed",
     };
   }
 
-  const newStatus = computeStatusFromEvidence(
+  const afterMissionEvidence = computeStatusFromEvidence(
     capabilityGap.status,
-    evidence.length,
+    missionEvidence.length,
+  );
+
+  const { data: profileSnapshotEvidence, error: profileSnapshotEvidenceError } =
+    await getProfileSnapshotEvidence(userId, capabilityGap.id);
+
+  if (profileSnapshotEvidenceError) {
+    console.warn(
+      "Capability status recalculation: profile_snapshot evidence read failed, proceeding with mission evidence only:",
+      profileSnapshotEvidenceError.message,
+    );
+  }
+
+  const qualifyingProfileSnapshotCount = profileSnapshotEvidence?.length ?? 0;
+
+  const newStatus = computeStatusFromProfileSnapshotEvidence(
+    afterMissionEvidence,
+    qualifyingProfileSnapshotCount,
   );
 
   if (newStatus === capabilityGap.status) {
