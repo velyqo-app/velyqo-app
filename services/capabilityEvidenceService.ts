@@ -67,6 +67,30 @@ export async function getProfileSnapshotEvidence(
     .returns<CapabilityEvidence[]>();
 }
 
+/**
+ * Phase 11 Step 3 — every capability_evidence row for a user, across every
+ * capability and every source_type, unscoped by capability_gap_id and
+ * WITHOUT the PHASE_10_2_ACTIVATION_CUTOFF filter that getProfileSnapshotEvidence
+ * applies. Deliberately different from that function: the cutoff is a
+ * STATUS-THRESHOLD concept (which evidence counts toward escalating a
+ * capability's status), not a "this evidence doesn't exist" concept — a
+ * pre-cutoff row is a completely real, permanent historical fact, and
+ * Journey Assembly (which only reads this to enrich a mission's journal
+ * entry with its capability name, never to recompute status) has no reason
+ * to exclude it. See the Phase 10.2 Step 4 discovery report for this exact
+ * distinction.
+ *
+ * Read-only. Returns `data: []` (not null) when the user has no evidence at
+ * all.
+ */
+export async function getAllCapabilityEvidenceForUser(userId: string) {
+  return await supabase
+    .from("capability_evidence")
+    .select("*")
+    .eq("user_id", userId)
+    .returns<CapabilityEvidence[]>();
+}
+
 export type RecordEvidenceResult =
   | { data: CapabilityEvidence; created: true; error: null }
   // Not an error — evidence for this exact journal entry already existed,

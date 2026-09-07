@@ -28,6 +28,23 @@ export async function getCareerCheckinById(userId: string, checkinId: string) {
 }
 
 /**
+ * Phase 11 Step 3 — every career_checkins row for a user, newest first.
+ * Mirrors getCareerCheckinById's scoping (user_id) but returns the whole
+ * history rather than one row by id — the read Journey Assembly needs to
+ * build a checkin_submitted event per check-in. Read-only, like every
+ * other read in this file. Returns `data: []` (not null) when the user has
+ * never submitted a check-in.
+ */
+export async function getCareerCheckins(userId: string) {
+  return await supabase
+    .from("career_checkins")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .returns<CareerCheckin[]>();
+}
+
+/**
  * Persists one completed Career Check-in — and does exactly that, nothing
  * else. Mirrors capabilityPersistenceService.saveCapabilityAssessment's
  * own precedent: a single, narrow persistence function, not an

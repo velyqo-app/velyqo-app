@@ -341,6 +341,32 @@ export async function getCareerCheckinConfirmation(
   return { data: toPublicConfirmation(data), error: null };
 }
 
+/**
+ * Phase 11 Step 3 — every career_checkin_confirmations row for a user,
+ * across every check-in they've ever submitted, in the same public
+ * CareerCheckinConfirmation shape getCareerCheckinConfirmation already
+ * returns (decisions merged with apply_progress via toPublicConfirmation,
+ * unchanged). Journey Assembly uses this to attach each check-in's
+ * decisions to its reports and to find which journal entry (if any) that
+ * check-in already claimed — never to re-derive or trust apply_progress as
+ * proof of anything beyond what it already means (see this file's own
+ * header comment). Read-only. Returns `data: []` (not null) when the user
+ * has no confirmations at all.
+ */
+export async function getCareerCheckinConfirmations(userId: string) {
+  const { data, error } = await supabase
+    .from("career_checkin_confirmations")
+    .select("*")
+    .eq("user_id", userId)
+    .returns<ConfirmationRow[]>();
+
+  if (error || !data) {
+    return { data: null, error };
+  }
+
+  return { data: data.map(toPublicConfirmation), error: null };
+}
+
 // ---------------------------------------------------------------------
 // Save
 // ---------------------------------------------------------------------

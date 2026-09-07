@@ -67,6 +67,27 @@ export async function hasCapabilityAssessment(
 }
 
 /**
+ * Phase 11 Step 3 — every capability_gaps row for a user, across EVERY
+ * target role they have ever had, not just their current one. Needed
+ * because a piece of evidence (or a Career Check-in decision) can
+ * legitimately link to a capability from a PAST target role — capability_
+ * gaps rows are never deleted on a target-role change (see
+ * careerCheckinConfirmationService's own "historical link" precedent) — so
+ * resolving a capability's name for Journey Assembly must not be scoped to
+ * the current target role the way getCapabilityGaps deliberately is.
+ *
+ * Read-only, like the rest of this service. Returns `data: []` (not null)
+ * when the user has no capability_gaps rows at all.
+ */
+export async function getAllCapabilityGapsForUser(userId: string) {
+  return await supabase
+    .from("capability_gaps")
+    .select("*")
+    .eq("user_id", userId)
+    .returns<CapabilityGap[]>();
+}
+
+/**
  * All capability_evidence rows for a single capability gap, oldest first —
  * accumulation order matters for future status-escalation logic (e.g. "a
  * second independent evidence event"), even though this step doesn't
