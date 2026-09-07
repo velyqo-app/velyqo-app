@@ -39,7 +39,13 @@ import {
   TargetTimeframe,
 } from "../../types/careerContext";
 import { Occupation } from "../../types/occupation";
-import { updateProfile } from "../../services/profileService";
+import { createJournalEntry } from "../../services/journalService";
+import {
+  buildRoleChangeJournalDescription,
+  buildSkillAddedJournalDescription,
+  computeAddedSkills,
+  updateProfile,
+} from "../../services/profileService";
 
 const EXPERIENCE_OPTIONS: ExperienceLevel[] = [
   "none",
@@ -184,18 +190,24 @@ export default function ProfileScreen() {
     return true;
   };
 
+  /** Returns whether the save succeeded — Phase 11 Step 1's saveSkills needs
+   * this to decide whether to journal; the three unrelated callers below
+   * (salary x2, experience, timeframe) simply don't use the return value,
+   * so their behavior is unchanged. */
   const saveSimpleField = async (
     updates: Record<string, unknown>,
     localPatch: Partial<UserData>,
-  ) => {
+  ): Promise<boolean> => {
     const ok = await saveFields(updates);
 
     if (!ok) {
-      return;
+      return false;
     }
 
     setUserData((prev) => ({ ...prev, ...localPatch }));
     closeEditor();
+
+    return true;
   };
 
   const saveCurrentSalary = () => {
@@ -226,11 +238,47 @@ export default function ProfileScreen() {
     );
   };
 
-  const saveSkills = () => {
-    saveSimpleField(
-      { skills: draftSkills.length > 0 ? draftSkills : null },
-      { skills: draftSkills },
+  /**
+   * Phase 11 Step 1 — the Skills editor saves the WHOLE draft array at once
+   * (SkillSelector lets the user add and/or remove several skills before a
+   * single Save tap), never one skill at a time. So the journal write here
+   * is computed as a genuine diff against what was actually persisted
+   * before this save, not against draft-state churn — only skills that are
+   * new relative to the pre-save value ever produce a journal entry, one
+   * row per added skill (no wording exists in this step's scope for a
+   * removal, so removals are never journaled). Only fires once the save has
+   * genuinely succeeded — matching every other secondary/non-fatal journal
+   * write in this file.
+   */
+  const saveSkills = async () => {
+    const originalSkills = userData.skills;
+    const newSkills = draftSkills;
+
+    const ok = await saveSimpleField(
+      { skills: newSkills.length > 0 ? newSkills : null },
+      { skills: newSkills },
     );
+
+    const userId = userData.userId;
+
+    if (!ok || !userId) {
+      return;
+    }
+
+    const addedSkills = computeAddedSkills(originalSkills, newSkills);
+
+    for (const skill of addedSkills) {
+      const { error: journalError } = await createJournalEntry({
+        userId,
+        title: "New skill added",
+        description: buildSkillAddedJournalDescription(skill),
+        entryType: "profile_edit",
+      });
+
+      if (journalError) {
+        console.warn("Profile edit journal entry failed:", journalError.message);
+      }
+    }
   };
 
   /** Shared by Current Role and Target Role — the only two fields whose
@@ -298,6 +346,34 @@ export default function ProfileScreen() {
             });
 
             closeEditor();
+
+            // Phase 11 Step 1 — secondary, best-effort journal write, only
+            // after the real save/invalidate/close sequence above has
+            // already completed exactly as it always has.
+            const userId = previousUserData.userId;
+
+            if (userId) {
+              const { error: journalError } = await createJournalEntry({
+                userId,
+                title:
+                  field === "currentRole"
+                    ? "Current role updated"
+                    : "Target role updated",
+                description: buildRoleChangeJournalDescription(
+                  field,
+                  originalRole,
+                  newRole,
+                ),
+                entryType: "profile_edit",
+              });
+
+              if (journalError) {
+                console.warn(
+                  "Profile edit journal entry failed:",
+                  journalError.message,
+                );
+              }
+            }
           },
         },
       ],
