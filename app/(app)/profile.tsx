@@ -370,6 +370,13 @@ export default function ProfileScreen() {
         />
 
         <ProfileLinkRow
+          icon="🗓️"
+          title="Career check-in"
+          subtitle="Tell VELYQO what's changed"
+          onPress={() => router.push("/career-checkin")}
+        />
+
+        <ProfileLinkRow
           icon="📖"
           title="Career Journal"
           subtitle="Your milestones and completed missions"

@@ -18,7 +18,26 @@
  * table never becomes a second copy of any of them.
  */
 
-export type CareerCheckinDecisionType = "confirmed" | "edited" | "declined";
+/**
+ * Step 8 prerequisite (added to the Step 7/7.1 contract): "declined" and
+ * "unresolved" are deliberately distinct, both semantically and in what
+ * gets persisted — they must never collapse into one value, even though
+ * they behave identically at apply time (see requiresNoApplication in
+ * services/careerCheckinConfirmationService.ts).
+ * - "declined": VELYQO produced a proposal (or the user filled in an
+ *   otherwise-unresolved report themselves) and the user explicitly chose
+ *   not to apply it.
+ * - "unresolved": VELYQO had no deterministic proposal for this report,
+ *   and the user explicitly chose to leave it that way rather than supply
+ *   a value. Only ever a valid decision for a reportIndex that appeared
+ *   in CareerCheckinInterpretation.unresolvedReportIndices — never for a
+ *   report that already had a proposal.
+ */
+export type CareerCheckinDecisionType =
+  | "confirmed"
+  | "edited"
+  | "declined"
+  | "unresolved";
 
 /** The orchestrator's own record of whether it has actually performed the
  * write a decision implies. Resumability bookkeeping, not proof — see the

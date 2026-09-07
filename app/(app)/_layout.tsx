@@ -183,6 +183,13 @@ export default function AppLayout() {
         name="career-gaps"
         options={{ href: null, tabBarStyle: { display: "none" } }}
       />
+
+      {/* Phase 10.1 Step 8 — same treatment — reached by push from Home or
+          Profile, never a tab. */}
+      <Tabs.Screen
+        name="career-checkin"
+        options={{ href: null, tabBarStyle: { display: "none" } }}
+      />
     </Tabs>
   );
 }

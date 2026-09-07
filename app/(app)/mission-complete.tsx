@@ -1,5 +1,4 @@
-import { useRoute } from "@react-navigation/native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useRoute } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView, StyleSheet, Text, View } from "react-native";
 

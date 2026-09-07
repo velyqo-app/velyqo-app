@@ -105,8 +105,9 @@ function toPersistedDecision(decision: CareerCheckinDecision): PersistedDecision
  * `apply_progress` bookkeeping into the public CareerCheckinConfirmation
  * shape every exported function returns — preserves the existing public
  * contract even though the two pieces are now stored separately. A
- * decision with no matching apply_progress entry (declined decisions are
- * never given one) reads as "pending", matching the original convention. */
+ * decision with no matching apply_progress entry (declined/unresolved
+ * decisions are never given one) reads as "pending", matching the
+ * original convention. */
 function toPublicConfirmation(row: ConfirmationRow): CareerCheckinConfirmation {
   const progressByIndex = new Map(
     row.apply_progress.map((entry) => [entry.reportIndex, entry.applyStatus]),
@@ -184,7 +185,7 @@ function validateDecisions(
       typeof candidate.reportIndex !== "number" ||
       !Number.isInteger(candidate.reportIndex) ||
       !isPlainString(candidate.decision) ||
-      !["confirmed", "edited", "declined"].includes(candidate.decision) ||
+      !["confirmed", "edited", "declined", "unresolved"].includes(candidate.decision) ||
       (candidate.appliedValue !== null && !isPlainString(candidate.appliedValue)) ||
       (candidate.capabilityGapId !== null && !isPlainString(candidate.capabilityGapId))
     ) {
@@ -221,21 +222,25 @@ function validateDecisions(
       return "A capability link was supplied for something that isn't a reported achievement.";
     }
 
-    if (decisionType === "declined") {
-      // A declined decision has nothing to apply — carrying a value or a
-      // capability link is an inconsistent, rejected payload.
+    if (decisionType === "declined" || decisionType === "unresolved") {
+      // Neither has anything to apply — carrying a value or a capability
+      // link is an inconsistent, rejected payload for either. "declined"
+      // and "unresolved" are validated identically here; only their
+      // persisted meaning differs (see the type's own doc comment).
       if (appliedValue !== null || capabilityGapId !== null) {
-        return "A declined change must not carry an applied value or capability link.";
+        return decisionType === "declined"
+          ? "A declined change must not carry an applied value or capability link."
+          : "A change left unresolved must not carry an applied value or capability link.";
       }
       continue;
     }
 
     // Rule 4: appliedValue must be a real, non-empty value for anything
-    // that isn't declined — except new_evidence, where null is allowed
-    // (the orchestrator defaults it to the report's own description at
-    // apply time; there is no equivalent safe default for a role/target
-    // role/skill, since an unresolved report's own structured field may
-    // itself be null).
+    // that isn't declined/unresolved — except new_evidence, where null is
+    // allowed (the orchestrator defaults it to the report's own
+    // description at apply time; there is no equivalent safe default for
+    // a role/target role/skill, since an unresolved report's own
+    // structured field may itself be null).
     if (appliedValue !== null && appliedValue.trim().length === 0) {
       return "One of your confirmed changes has an empty value.";
     }
@@ -464,6 +469,20 @@ function toUserDataSnapshot(profile: Profile, userId: string): UserData {
   };
 }
 
+/**
+ * True for decisions that require no application at all — either the user
+ * explicitly declined a proposal VELYQO understood, or explicitly chose to
+ * leave an unresolved report unresolved (Step 8 prerequisite). Both are
+ * treated identically here (nothing to write, never blocks completion);
+ * only their persisted `decision` value differs, which is what preserves
+ * the honest distinction between the two for good.
+ */
+function requiresNoApplication(decision: {
+  decision: CareerCheckinDecisionType;
+}): boolean {
+  return decision.decision === "declined" || decision.decision === "unresolved";
+}
+
 type ProfileAffectingCategory = "role_change" | "target_change" | "new_skill";
 
 function isProfileAffectingCategory(
@@ -508,7 +527,7 @@ async function verifyAndApplyProfileDecisions(
   const categoryByIndex = new Map<number, ProfileAffectingCategory>();
 
   for (const decision of decisions) {
-    if (decision.decision === "declined") {
+    if (requiresNoApplication(decision)) {
       continue;
     }
 
@@ -646,7 +665,7 @@ async function verifyAndApplyEvidenceDecisions(
   const result = new Map<number, ApplyStatus>();
 
   for (const decision of decisions) {
-    if (decision.decision === "declined") {
+    if (requiresNoApplication(decision)) {
       continue;
     }
 
@@ -813,8 +832,10 @@ export type ApplyCareerCheckinConfirmationResult =
 
 /**
  * Applies a saved confirmation's decisions to profiles/capability_evidence/
- * career_journal, and marks it completed only once every non-declined
- * decision is verifiably applied AND the journal entry exists. Also serves
+ * career_journal, and marks it completed only once every applicable
+ * (confirmed/edited) decision is verifiably applied AND the journal entry
+ * exists — declined and unresolved decisions require nothing and never
+ * block completion (see requiresNoApplication). Also serves
  * as the retry entry point — every call performs the same full
  * re-verification, so calling it again after a crash, a failure, or a
  * tampering attempt converges on the same correct end state.
@@ -870,14 +891,14 @@ export async function applyCareerCheckinConfirmation(
   let allApplied = true;
 
   for (const decision of row.decisions) {
-    if (decision.decision === "declined") {
+    if (requiresNoApplication(decision)) {
       continue;
     }
 
-    // Every non-declined, validated decision maps to exactly one of the
-    // two verifiers above (profile-affecting or new_evidence) — the
-    // "failed" fallback is defensive and unreachable given save-time
-    // validation; it is never treated as a silent success.
+    // Every applicable, validated decision (confirmed/edited) maps to
+    // exactly one of the two verifiers above (profile-affecting or
+    // new_evidence) — the "failed" fallback is defensive and unreachable
+    // given save-time validation; it is never treated as a silent success.
     const status: ApplyStatus =
       profileStatuses.get(decision.reportIndex) ??
       evidenceStatuses.get(decision.reportIndex) ??

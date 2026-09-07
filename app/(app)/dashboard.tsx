@@ -5,6 +5,7 @@ import { BackHandler, Platform, ScrollView, StyleSheet, Text, View } from "react
 import MomentumCard from "../../components/dashboard-v2/MomentumCard";
 
 import CareerCoachEntry from "../../components/home/CareerCoachEntry";
+import CheckinPromptCard from "../../components/home/CheckinPromptCard";
 import Greeting from "../../components/home/Greeting";
 import JourneySummaryCard from "../../components/home/JourneySummaryCard";
 import NextMoveCard from "../../components/home/NextMoveCard";
@@ -114,6 +115,8 @@ export default function DashboardScreen() {
 
   const goToCoach = () => router.push("/ai-coach");
 
+  const goToCheckin = () => router.push("/career-checkin");
+
   // Dashboard is the root of the authenticated app — there is no meaningful
   // authenticated screen below it to go back to. Without this, hardware
   // Back falls through to the pre-auth stack and briefly shows index.tsx's
@@ -195,6 +198,8 @@ export default function DashboardScreen() {
       />
 
       <CareerCoachEntry onPress={goToCoach} />
+
+      <CheckinPromptCard onPress={goToCheckin} />
     </ScrollView>
   );
 }
