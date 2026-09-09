@@ -190,6 +190,13 @@ export default function AppLayout() {
         name="career-checkin"
         options={{ href: null, tabBarStyle: { display: "none" } }}
       />
+
+      {/* Phase 11 Step 4 — same treatment — reached by push from Journey's
+          Story view, never a tab. */}
+      <Tabs.Screen
+        name="capability-evidence"
+        options={{ href: null, tabBarStyle: { display: "none" } }}
+      />
     </Tabs>
   );
 }

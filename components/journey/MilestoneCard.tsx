@@ -1,24 +1,15 @@
 import { useState } from "react";
 import {
   LayoutAnimation,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
-  UIManager,
   View,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { Colors, Radius, Shadows, Spacing } from "../../constants/theme";
 import { RoadmapStep } from "../../types/roadmap";
-
-if (
-  Platform.OS === "android" &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 /** Visual weight only — never the source of truth for where the user
  * actually is (that's MilestoneVisualState, purely date-derived). "next" is

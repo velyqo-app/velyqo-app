@@ -41,6 +41,22 @@ interface Props {
  * active node is whichever one the user is actually reading. */
 const VIEWPORT_OFFSET = 160;
 
+/** Vertical distance from the destination row's own top (its registered
+ * layout offset) to its dot's center — dotColumn's paddingTop plus half the
+ * larger target dot — so the fill line's terminal point lines up with the
+ * dot itself rather than the row's top edge. */
+const DESTINATION_DOT_CENTER_OFFSET = 4 + 20 / 2;
+
+/** Matches the line track's own `top` inset in the stylesheet below — one
+ * named constant so the track's animated height (measured from that same
+ * inset) can never drift out of sync with where it's actually anchored. */
+const LINE_TRACK_TOP_INSET = 6;
+
+/** Same idea as DESTINATION_DOT_CENTER_OFFSET, for every node except the
+ * destination — dotColumn's paddingTop plus half the regular (non-target)
+ * dot, both of which use DOT_SIZE. */
+const MILESTONE_DOT_CENTER_OFFSET = 4 + 14 / 2;
+
 export default function JourneyPath({
   roadmap,
   timeline,
@@ -49,6 +65,24 @@ export default function JourneyPath({
 }: Props) {
   const { milestones, hasDates } = timeline;
   const nodeCount = milestones.length + 2;
+
+  // The single node currently inside its own calendar window — the you-are-
+  // here marker unless real time has already carried the user into a later
+  // milestone's own span. This is VELYQO's one existing "current status"
+  // signal (resolveMilestoneState, purely calendar-derived off the
+  // roadmap's own generatedAt + each step's own estimatedTime — see that
+  // function's own header comment for why there's deliberately no separate
+  // persisted "completed step" concept to read instead). Computed here,
+  // before the animated styles below, so lineFillStyle can anchor the
+  // fill's baseline to it rather than always starting from scroll position
+  // zero.
+  let currentAbsoluteIndex = 0;
+
+  milestones.forEach((milestone, index) => {
+    if (resolveMilestoneState(milestone, index) === "current") {
+      currentAbsoluteIndex = index + 1;
+    }
+  });
 
   const containerTop = useSharedValue(0);
   const containerHeight = useSharedValue(1);
@@ -110,14 +144,63 @@ export default function JourneyPath({
   );
 
   const lineFillStyle = useAnimatedStyle(() => {
-    const progress = interpolate(
+    const offsets = nodeOffsets.value;
+
+    // The terminal point is the destination dot itself, not the bottom of
+    // the container — the container's own height also includes the
+    // destination card's body content below that dot, so clamping against
+    // containerHeight let the fill keep growing while the user was still
+    // scrolling past the destination's own text, well after the dot had
+    // already been reached. Clamping against the destination node's own
+    // registered offset (its dot's vertical center) instead makes the fill
+    // stop exactly there and stay stable for any scroll beyond it.
+    const destinationOffset =
+      offsets.length > 0
+        ? offsets[offsets.length - 1] + DESTINATION_DOT_CENTER_OFFSET
+        : containerHeight.value;
+
+    const scrollProgress = interpolate(
       scrollY.value + VIEWPORT_OFFSET - containerTop.value,
-      [0, containerHeight.value],
-      [0, containerHeight.value],
+      [0, destinationOffset],
+      [0, destinationOffset],
       Extrapolation.CLAMP,
     );
 
+    // Floors the fill at the user's actual current milestone — never below
+    // it, regardless of scroll position — so opening (or scrolling back up
+    // through) the roadmap never visually "un-completes" progress that's
+    // already real. Scrolling further down past this point still extends
+    // the fill smoothly, exactly as before, up to the destination cap
+    // above; scrolling stays purely additive polish on top of this floor,
+    // never the sole source of what counts as progress.
+    const currentOffset =
+      offsets.length > 0
+        ? offsets[currentAbsoluteIndex] + MILESTONE_DOT_CENTER_OFFSET
+        : 0;
+
+    const progress = Math.max(currentOffset, scrollProgress);
+
     return { height: progress };
+  });
+
+  // The always-visible background rail (as opposed to lineFillStyle's
+  // scroll-driven purple progress) — previously a static top:6/bottom:6
+  // inset, so its height came from the container's own full Yoga-computed
+  // height, which includes the destination card's body content (title,
+  // arrival estimate, salary block) below the dot. That let the rail
+  // visibly run on past the destination dot for however tall that card's
+  // content was. Anchored to the same destination-dot offset as the fill
+  // instead, so the rail itself — not just the animated fill on top of it —
+  // physically ends at the dot, regardless of scroll.
+  const trackStyle = useAnimatedStyle(() => {
+    const offsets = nodeOffsets.value;
+
+    const destinationOffset =
+      offsets.length > 0
+        ? offsets[offsets.length - 1] + DESTINATION_DOT_CENTER_OFFSET
+        : containerHeight.value;
+
+    return { height: Math.max(0, destinationOffset - LINE_TRACK_TOP_INSET) };
   });
 
   const pulseStyle = useAnimatedStyle(() => ({
@@ -125,25 +208,17 @@ export default function JourneyPath({
     transform: [{ scale: interpolate(pulse.value, [0, 1], [1, 1.2]) }],
   }));
 
-  // The single node currently inside its own calendar window — the you-are-
-  // here marker unless real time has already carried the user into a later
-  // milestone's own span.
-  let currentAbsoluteIndex = 0;
-
-  milestones.forEach((milestone, index) => {
-    if (resolveMilestoneState(milestone, index) === "current") {
-      currentAbsoluteIndex = index + 1;
-    }
-  });
-
   const nextTitleFor = (index: number) =>
     milestones[index + 1]?.step.title ?? roadmap.target.title;
 
   return (
     <View style={styles.container} onLayout={handleContainerLayout}>
-      <View style={styles.lineTrack} pointerEvents="none">
+      <Animated.View
+        style={[styles.lineTrack, trackStyle]}
+        pointerEvents="none"
+      >
         <Animated.View style={[styles.lineFill, lineFillStyle]} />
-      </View>
+      </Animated.View>
 
       {/* Node 0 — you are here */}
       <Animated.View
@@ -263,11 +338,17 @@ const styles = StyleSheet.create({
   lineTrack: {
     position: "absolute",
     left: COLUMN_WIDTH / 2 - LINE_WIDTH / 2,
-    top: 6,
-    bottom: 6,
+    top: LINE_TRACK_TOP_INSET,
+    // No `bottom` inset — trackStyle (an animated style, keyed off the
+    // destination dot's own layout offset) supplies `height` instead, so
+    // this rail's own end lines up with the fill's terminal point rather
+    // than stretching to the container's full height.
     width: LINE_WIDTH,
     backgroundColor: Colors.border,
     borderRadius: LINE_WIDTH / 2,
+    // Belt-and-suspenders: even if height ever lagged a layout change for a
+    // frame, this guarantees the rail can never render past its own box.
+    overflow: "hidden",
   },
 
   lineFill: {

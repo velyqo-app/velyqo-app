@@ -454,9 +454,11 @@ export default function ProfileScreen() {
 
         <ProfileLinkRow
           icon="📖"
-          title="Career Journal"
+          title="Career Story"
           subtitle="Your milestones and completed missions"
-          onPress={() => router.push("/career-journal")}
+          onPress={() =>
+            router.push({ pathname: "/timeline", params: { view: "story" } })
+          }
         />
 
         <ProfileLinkRow icon="⚙️" title="Preferences" subtitle="Coming soon" />
