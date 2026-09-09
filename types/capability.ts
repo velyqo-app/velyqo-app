@@ -19,6 +19,21 @@ export type CapabilityStatus =
   | "priority_gap";
 
 /**
+ * Shared display wording for CapabilityStatus — co-located with the type
+ * itself, the same pattern types/careerContext.ts already establishes for
+ * its own enums' _LABELS constants. Matches career-gaps.tsx's own existing
+ * wording (the original source of these exact strings), so Journey Story
+ * and Capability Evidence read as the same product instead of each keeping
+ * an independent, driftable copy.
+ */
+export const CAPABILITY_STATUS_LABELS: Record<CapabilityStatus, string> = {
+  priority_gap: "Priority Gaps",
+  developing: "Developing",
+  unknown: "Not Yet Assessed",
+  strength: "Strengths",
+};
+
+/**
  * Where a piece of capability evidence came from. Deliberately limited to
  * data already in the app — no external sources (CV, LinkedIn, etc.).
  */

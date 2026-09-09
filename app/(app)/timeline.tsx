@@ -1,5 +1,5 @@
-import { useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useState } from "react";
 import { StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -33,22 +33,23 @@ export default function TimelineScreen() {
     viewParam === "story" ? "story" : "roadmap",
   );
 
-  // Adjusts state during render rather than in a useEffect (React's own
-  // recommended pattern for "reset/sync state when a prop changes") —
-  // tracks the last param value seen so a genuine change (e.g. navigating
-  // here again from career-journal.tsx's redirect or Profile's direct
-  // link while already mounted) updates `view`, while still leaving the
-  // user free to switch segments locally afterward without this fighting
-  // that choice on every render.
-  const [lastViewParam, setLastViewParam] = useState(viewParam);
-
-  if (viewParam !== lastViewParam) {
-    setLastViewParam(viewParam);
-
-    if (viewParam === "story" || viewParam === "roadmap") {
-      setView(viewParam);
-    }
-  }
+  // Consumes and clears the param on focus, rather than comparing it
+  // against its previous value — a plain string-equality check would miss
+  // a genuine repeat navigation (e.g. Profile's "Career Story" link tapped
+  // again after the user locally switched back to Roadmap in between),
+  // since the incoming value would be identical to the one already seen
+  // and nothing would appear to have changed. Clearing it immediately after
+  // consuming it also means a later plain tab-bar focus — carrying no new
+  // navigation intent of its own — leaves the user's local segment choice
+  // alone instead of silently reapplying a stale param.
+  useFocusEffect(
+    useCallback(() => {
+      if (viewParam === "story" || viewParam === "roadmap") {
+        setView(viewParam);
+        router.setParams({ view: undefined });
+      }
+    }, [viewParam]),
+  );
 
   return (
     <SafeAreaView style={styles.container}>

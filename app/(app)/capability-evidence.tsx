@@ -4,12 +4,12 @@ import {
   ActivityIndicator,
   BackHandler,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
@@ -19,7 +19,7 @@ import { formatEventDate } from "../../components/journey/StoryEventCard";
 import { Colors, Spacing } from "../../constants/theme";
 import { useProfile } from "../../hooks/useProfile";
 import { getCapabilityEvidenceTrails } from "../../services/capabilityEvidenceTrailService";
-import { CapabilityStatus } from "../../types/capability";
+import { CAPABILITY_STATUS_LABELS as STATUS_LABELS } from "../../types/capability";
 import { CapabilityEvidenceTrail } from "../../types/capabilityEvidenceTrail";
 
 /**
@@ -34,16 +34,6 @@ import { CapabilityEvidenceTrail } from "../../types/capabilityEvidenceTrail";
  * capabilityEvidenceTrailService already resolved it from
  * capability_gaps.status.
  */
-
-// Mirrors career-gaps.tsx's own status convention exactly — see
-// StoryView.tsx's identical, deliberately duplicated constant for why this
-// small map isn't factored into a new shared file.
-const STATUS_LABELS: Record<CapabilityStatus, string> = {
-  priority_gap: "Priority Gap",
-  developing: "Developing",
-  unknown: "Not Yet Assessed",
-  strength: "Strength",
-};
 
 export default function CapabilityEvidenceScreen() {
   const { capabilityGapId, capabilityName } = useLocalSearchParams<{
@@ -61,6 +51,7 @@ export default function CapabilityEvidenceScreen() {
   const [notFound, setNotFound] = useState(false);
 
   const activeRef = useRef(true);
+  const hasLoadedOnce = useRef(false);
 
   useEffect(() => {
     activeRef.current = true;
@@ -77,7 +68,17 @@ export default function CapabilityEvidenceScreen() {
       return;
     }
 
-    setLoading(true);
+    // Mirrors StoryView.tsx's own hasLoadedOnce gate: useFocusEffect below
+    // re-runs this on every refocus (backgrounding the app, returning from
+    // capability-evidence's own back navigation, etc.), not just the first
+    // mount — without this gate, that refetch blanked already-loaded
+    // evidence back to a full-screen spinner every single time.
+    const showFullLoading = !hasLoadedOnce.current;
+
+    if (showFullLoading) {
+      setLoading(true);
+    }
+
     setError(null);
     setNotFound(false);
 
@@ -102,6 +103,8 @@ export default function CapabilityEvidenceScreen() {
       setLoading(false);
       return;
     }
+
+    hasLoadedOnce.current = true;
 
     setTrail(found);
     setPartial(result.data.partial);

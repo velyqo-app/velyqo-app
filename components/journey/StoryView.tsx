@@ -16,7 +16,10 @@ import { Colors, Spacing } from "../../constants/theme";
 import { useProfile } from "../../hooks/useProfile";
 import { getCapabilityEvidenceTrails } from "../../services/capabilityEvidenceTrailService";
 import { getCareerJourney } from "../../services/careerJourneyService";
-import { CapabilityStatus } from "../../types/capability";
+import {
+  CAPABILITY_STATUS_LABELS as STATUS_LABELS,
+  CapabilityStatus,
+} from "../../types/capability";
 import {
   CapabilityEvidenceTrail,
   CapabilityEvidenceTrails,
@@ -29,17 +32,6 @@ import { CareerJourney, JourneyEvent } from "../../types/careerJourney";
  * getCapabilityEvidenceTrails, in parallel), its own loading/error/empty/
  * partial states, no shared state with the roadmap side at all.
  */
-
-// Mirrors career-gaps.tsx's own status convention exactly (small, local
-// duplication rather than a new shared file for a 4-entry constant — the
-// same judgment call this codebase already makes elsewhere, e.g.
-// toRoadmapLookupInput's documented precedent).
-const STATUS_LABELS: Record<CapabilityStatus, string> = {
-  priority_gap: "Priority Gap",
-  developing: "Developing",
-  unknown: "Not Yet Assessed",
-  strength: "Strength",
-};
 
 const STATUS_COLORS: Record<CapabilityStatus, string> = {
   priority_gap: Colors.warning,
@@ -129,12 +121,20 @@ export function deriveStoryScreenState(
   trails: CapabilityEvidenceTrails | null,
   now: Date,
 ): StoryScreenState {
-  if (loading || !journey) {
+  if (loading) {
     return { kind: "loading" };
   }
 
+  // Checked before `!journey`: on a first-load failure, load() sets error
+  // but never sets journey (it stays null), so testing `!journey` first
+  // would keep returning "loading" forever and this state — and its Retry
+  // button — would never be reachable.
   if (error) {
     return { kind: "error", message: error };
+  }
+
+  if (!journey) {
+    return { kind: "loading" };
   }
 
   const trailList = trails?.trails ?? [];
