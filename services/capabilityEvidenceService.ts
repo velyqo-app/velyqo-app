@@ -41,8 +41,12 @@ export async function getMissionCompletionEvidence(
  * NEVER be replaced with a dynamic Date computation, and must not be edited
  * casually: changing it changes what "no backfill" means for every existing
  * row already in the database.
+ *
+ * Exported (Phase 13) so capabilityAchievementService's milestone
+ * reconstruction can apply the exact same cutoff to profile_snapshot
+ * evidence it replays — never a second, hand-copied literal.
  */
-const PHASE_10_2_ACTIVATION_CUTOFF = "2026-09-07T00:00:00.000Z";
+export const PHASE_10_2_ACTIVATION_CUTOFF = "2026-09-07T00:00:00.000Z";
 
 /**
  * All post-activation profile_snapshot evidence rows for a capability,

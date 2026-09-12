@@ -18,7 +18,14 @@ import ProvenanceBadge from "../../components/journey/ProvenanceBadge";
 import { formatEventDate } from "../../components/journey/StoryEventCard";
 import { Colors, Spacing } from "../../constants/theme";
 import { useProfile } from "../../hooks/useProfile";
+import {
+  countEvidenceByProvenance,
+  describeEvidenceSummary,
+  reconstructCapabilityMilestones,
+} from "../../services/capabilityAchievementService";
+import { getCapabilityGapById } from "../../services/capabilityGapService";
 import { getCapabilityEvidenceTrails } from "../../services/capabilityEvidenceTrailService";
+import { missionFromCapabilityGap } from "../../services/capabilityMissionService";
 import { CAPABILITY_STATUS_LABELS as STATUS_LABELS } from "../../types/capability";
 import { CapabilityEvidenceTrail } from "../../types/capabilityEvidenceTrail";
 
@@ -33,6 +40,15 @@ import { CapabilityEvidenceTrail } from "../../types/capabilityEvidenceTrail";
  * fetched CapabilityGap-derived trail, exactly as
  * capabilityEvidenceTrailService already resolved it from
  * capability_gaps.status.
+ *
+ * Phase 13 — Career Achievement Record. This screen additionally renders
+ * capabilityAchievementService's deterministic milestone reconstruction and
+ * evidence summary (both pure, computed here from the same trail.evidence
+ * already fetched above — no new query), and, only for a developing
+ * capability belonging to the user's CURRENT target role, a "Build more
+ * evidence" entry point back into the existing mission pipeline (see
+ * handleBuildMoreEvidence below). Nothing here recomputes or reinterprets
+ * capability status — that remains capability_gaps.status alone.
  */
 
 export default function CapabilityEvidenceScreen() {
@@ -49,6 +65,16 @@ export default function CapabilityEvidenceScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  // Phase 13 — "Build more evidence" CTA state, entirely local to this
+  // screen. Not the same idempotency concern as mission-complete.tsx's own
+  // route-key guard: this only fetches a read-only CapabilityGap row and
+  // navigates away on success, so a duplicate tap before navigation simply
+  // re-fetches the same row rather than recording anything.
+  const [buildingMission, setBuildingMission] = useState(false);
+  const [buildMissionError, setBuildMissionError] = useState<string | null>(
+    null,
+  );
 
   const activeRef = useRef(true);
   const hasLoadedOnce = useRef(false);
@@ -116,6 +142,56 @@ export default function CapabilityEvidenceScreen() {
       load();
     }, [load]),
   );
+
+  /**
+   * Phase 13 — reuses the existing capability mission pipeline exactly:
+   * getCapabilityGapById -> missionFromCapabilityGap -> /ai-coach ->
+   * (existing, unmodified) /mission-complete -> recordMissionCompletionEvidence
+   * -> recalculateCapabilityStatus. No separate mission engine, no AI call —
+   * missionFromCapabilityGap is the same deterministic Tier 0 builder Home
+   * already uses. getCapabilityGapById re-verifies ownership (scoped to
+   * userId) before building anything, exactly as mission-complete.tsx
+   * already relies on it doing.
+   */
+  const handleBuildMoreEvidence = useCallback(async () => {
+    if (!userId || !capabilityGapId || !trail) {
+      return;
+    }
+
+    setBuildingMission(true);
+    setBuildMissionError(null);
+
+    const { data: gap, error: gapError } = await getCapabilityGapById(
+      userId,
+      capabilityGapId,
+    );
+
+    if (!activeRef.current) {
+      return;
+    }
+
+    if (gapError || !gap) {
+      setBuildingMission(false);
+      setBuildMissionError(
+        "We couldn't start a new mission for this capability. Please try again.",
+      );
+      return;
+    }
+
+    const mission = missionFromCapabilityGap(gap);
+
+    setBuildingMission(false);
+
+    router.push({
+      pathname: "/ai-coach",
+      params: {
+        mission: mission.title,
+        missionDescription: mission.description,
+        capabilityGapId: gap.id,
+        capabilityName: gap.capability_name,
+      },
+    });
+  }, [userId, capabilityGapId, trail]);
 
   // This screen is reached by push from Story, but it lives in the same
   // Tabs navigator as every other screen (href: null, matching career-gaps/
@@ -225,7 +301,59 @@ export default function CapabilityEvidenceScreen() {
                   From a previous goal: {trail.targetRole}
                 </Text>
               ) : null}
+
+              <Text style={styles.evidenceSummary}>
+                {describeEvidenceSummary(
+                  countEvidenceByProvenance(trail.evidence),
+                )}
+              </Text>
+
+              {(() => {
+                const milestones = reconstructCapabilityMilestones(
+                  trail.evidence,
+                );
+
+                return (
+                  <>
+                    {milestones.firstEvidenceDate ? (
+                      <Text style={styles.milestoneRow}>
+                        First evidence ·{" "}
+                        {formatEventDate(milestones.firstEvidenceDate)}
+                      </Text>
+                    ) : null}
+
+                    {milestones.developingAt ? (
+                      <Text style={styles.milestoneRow}>
+                        Became Developing ·{" "}
+                        {formatEventDate(milestones.developingAt)}
+                      </Text>
+                    ) : null}
+
+                    {milestones.strengthAt ? (
+                      <Text style={styles.milestoneRow}>
+                        Became a Strength ·{" "}
+                        {formatEventDate(milestones.strengthAt)}
+                      </Text>
+                    ) : null}
+                  </>
+                );
+              })()}
             </Card>
+
+            {trail.currentStatus === "developing" &&
+            trail.isCurrentTargetRole ? (
+              <View style={styles.ctaBlock}>
+                <Button
+                  title="Build more evidence"
+                  onPress={handleBuildMoreEvidence}
+                  disabled={buildingMission}
+                />
+
+                {buildMissionError ? (
+                  <Text style={styles.ctaError}>{buildMissionError}</Text>
+                ) : null}
+              </View>
+            ) : null}
 
             <Text style={styles.sectionHeading}>Evidence</Text>
 
@@ -321,6 +449,30 @@ const styles = StyleSheet.create({
     color: Colors.subtext,
     fontSize: 13,
     marginTop: Spacing.xs,
+  },
+
+  evidenceSummary: {
+    color: Colors.text,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: Spacing.md,
+  },
+
+  milestoneRow: {
+    color: Colors.subtext,
+    fontSize: 12,
+    marginTop: 4,
+  },
+
+  ctaBlock: {
+    marginTop: Spacing.md,
+  },
+
+  ctaError: {
+    color: Colors.subtext,
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: Spacing.sm,
   },
 
   sectionHeading: {

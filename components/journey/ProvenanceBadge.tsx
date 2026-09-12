@@ -15,6 +15,14 @@ import { Colors, Radius } from "../../constants/theme";
  * The label TEXT alone fully conveys meaning — colour is a secondary
  * reinforcement, never the only signal (a screen reader reads the text
  * regardless of colour).
+ *
+ * Phase 13 — the "velyqo_verified" variant's own label was corrected from
+ * "VELYQO verified" to "Completed via VELYQO": VELYQO only knows a mission
+ * was completed in-app, never that the underlying real-world skill was
+ * independently verified, and the word "verified" overstated that. The
+ * variant KEY is unchanged (still "velyqo_verified", still reused verbatim
+ * from JourneyEventProvenance) — this is a wording-only fix, not a new
+ * provenance value.
  */
 export type ProvenanceBadgeVariant = "you_reported" | "velyqo_verified" | "assessment";
 
@@ -24,7 +32,7 @@ interface Props {
 
 const LABELS: Record<ProvenanceBadgeVariant, string> = {
   you_reported: "You reported",
-  velyqo_verified: "VELYQO verified",
+  velyqo_verified: "Completed via VELYQO",
   assessment: "VELYQO's assessment",
 };
 

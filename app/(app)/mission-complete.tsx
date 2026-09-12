@@ -24,6 +24,19 @@ function truncate(text: string, max: number): string {
 }
 
 /**
+ * Phase 13 — the one honest fact this screen may additionally acknowledge:
+ * a genuine capability_gaps.status transition that this exact mission
+ * completion just caused. recalculateCapabilityStatus only ever writes a
+ * new status when it differs from the row's current one, and the only two
+ * values it can write are "developing" and "strength" (see that function's
+ * own doc comment) — so those are the only two this type needs to carry.
+ */
+export interface CapabilityStatusTransition {
+  capabilityName: string;
+  newStatus: "developing" | "strength";
+}
+
+/**
  * Runs only when this completion is for a Step 6/7 capability mission
  * (capabilityGapId non-empty). Never allowed to affect the outcome of
  * saveMissionProgress below — mission completion and the journal entry
@@ -37,13 +50,17 @@ function truncate(text: string, max: number): string {
  * user's row" identically — see that function's doc comment) — required
  * because capabilityGapId arrives as a plain route param, not something
  * the server has already verified.
+ *
+ * Returns the resulting CapabilityStatusTransition only when a real status
+ * change was just persisted — null on every no-op, skip, or failure path
+ * (nothing here ever reports a change that didn't provably happen).
  */
 async function recordCapabilityEvidence(
   userId: string,
   capabilityGapId: string,
   capabilityName: string,
   journalEntryId: string | null,
-): Promise<void> {
+): Promise<CapabilityStatusTransition | null> {
   const { data: gap, error: gapError } = await getCapabilityGapById(
     userId,
     capabilityGapId,
@@ -54,7 +71,7 @@ async function recordCapabilityEvidence(
       "Capability evidence skipped — gap not found or not owned by user:",
       gapError?.message,
     );
-    return;
+    return null;
   }
 
   const evidenceResult = await recordMissionCompletionEvidence(
@@ -66,13 +83,13 @@ async function recordCapabilityEvidence(
 
   if (evidenceResult.error !== null) {
     console.warn("Capability evidence creation failed:", evidenceResult.error);
-    return;
+    return null;
   }
 
   if (!evidenceResult.created) {
     // Already recorded for this exact journal entry — the earlier attempt
     // that created it already triggered recalculation, nothing new here.
-    return;
+    return null;
   }
 
   const statusResult = await recalculateCapabilityStatus(userId, gap);
@@ -82,7 +99,25 @@ async function recordCapabilityEvidence(
       "Capability status recalculation failed (evidence is preserved, will be picked up by a later recalculation):",
       statusResult.error,
     );
+    return null;
   }
+
+  if (!statusResult.statusChanged) {
+    return null;
+  }
+
+  // recalculateCapabilityStatus only ever writes "developing" or "strength"
+  // (see its own doc comment) — every other CapabilityStatus value is
+  // structurally unreachable here, so this narrows honestly rather than
+  // asserting it away.
+  if (
+    statusResult.newStatus !== "developing" &&
+    statusResult.newStatus !== "strength"
+  ) {
+    return null;
+  }
+
+  return { capabilityName, newStatus: statusResult.newStatus };
 }
 
 export type SaveMissionProgressResult = {
@@ -176,6 +211,8 @@ export default function MissionCompleteScreen() {
 
   const [saving, setSaving] = useState(true);
   const [error, setError] = useState(false);
+  const [statusTransition, setStatusTransition] =
+    useState<CapabilityStatusTransition | null>(null);
 
   // The route.key for which capability evidence has already been
   // attempted, if any. A Retry (or a same-instance double-invoke) reuses
@@ -205,14 +242,23 @@ export default function MissionCompleteScreen() {
         capabilityGapId,
         capabilityName ?? "",
         journalEntryId,
-      ).catch((thrown) => {
-        // Mission completion and the journal entry already succeeded by the
-        // time this is called — an unexpected throw here (vs. the
-        // returned-error paths already handled inside
-        // recordCapabilityEvidence) must still never fail the mission
-        // completion the user is looking at.
-        console.warn("Capability evidence flow failed unexpectedly:", thrown);
-      });
+      )
+        .then((transition) => {
+          if (transition) {
+            setStatusTransition(transition);
+          }
+        })
+        .catch((thrown) => {
+          // Mission completion and the journal entry already succeeded by
+          // the time this is called — an unexpected throw here (vs. the
+          // returned-error paths already handled inside
+          // recordCapabilityEvidence) must still never fail the mission
+          // completion the user is looking at.
+          console.warn(
+            "Capability evidence flow failed unexpectedly:",
+            thrown,
+          );
+        });
     },
     [capabilityGapId, capabilityName, route.key],
   );
@@ -320,6 +366,36 @@ export default function MissionCompleteScreen() {
             />
           </View>
         </Card>
+
+        {statusTransition ? (
+          <Card>
+            {statusTransition.newStatus === "developing" ? (
+              <>
+                <Text style={styles.transitionTitle}>
+                  Progress: {statusTransition.capabilityName}
+                </Text>
+
+                <Text style={styles.transitionBody}>
+                  You&apos;ve built evidence toward {statusTransition.capabilityName}{" "}
+                  through a completed VELYQO mission. Complete another
+                  mission for this capability from your Career Story to keep
+                  building on it.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.transitionTitle}>
+                  {statusTransition.capabilityName} is now a Strength
+                </Text>
+
+                <Text style={styles.transitionBody}>
+                  {statusTransition.capabilityName} now has two completed
+                  VELYQO missions as evidence.
+                </Text>
+              </>
+            )}
+          </Card>
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -391,5 +467,20 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     fontSize: 15,
     lineHeight: 22,
+  },
+
+  transitionTitle: {
+    color: Colors.text,
+    fontSize: 17,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+
+  transitionBody: {
+    color: Colors.subtext,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+    marginTop: Spacing.xs,
   },
 });
