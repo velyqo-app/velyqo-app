@@ -30,6 +30,7 @@ import {
   getStoredPriority,
   invalidateCachedRoadmap,
 } from "../../hooks/useRoadmap";
+import { triggerCapabilityAssessmentIfNeeded } from "../../services/capabilityAssessmentService";
 import { getAllKnownSkills } from "../../services/skillSuggestionService";
 import {
   EXPERIENCE_LEVEL_LABELS,
@@ -344,6 +345,21 @@ export default function ProfileScreen() {
             await invalidateCachedRoadmap(previousUserData, {
               alsoDecision: field === "targetRole",
             });
+
+            // Phase 12 — fire-and-forget: only the target role affects the
+            // Career Gap assessment (a current-role change never triggers
+            // generation). By this point the save has already succeeded
+            // and newRole is already known to differ from the original
+            // (the early return above catches an unchanged value), so both
+            // "succeeded" and "genuinely changed" are already satisfied.
+            if (field === "targetRole" && previousUserData.userId) {
+              triggerCapabilityAssessmentIfNeeded(
+                previousUserData.userId,
+                previousUserData.currentRole,
+                newRole,
+                previousUserData.skills,
+              );
+            }
 
             closeEditor();
 

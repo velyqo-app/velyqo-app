@@ -2,6 +2,7 @@ import { UserData } from "../context/UserContext";
 import { invalidateCachedRoadmap } from "../hooks/useRoadmap";
 import { getCareerCheckinById } from "./careerCheckinService";
 import { interpretCareerCheckin } from "./careerCheckinInterpretationService";
+import { triggerCapabilityAssessmentIfNeeded } from "./capabilityAssessmentService";
 import { getCapabilityGapById } from "./capabilityGapService";
 import { recordProfileSnapshotEvidence } from "./capabilityEvidenceService";
 import { recalculateCapabilityStatus } from "./capabilityStatusService";
@@ -647,6 +648,35 @@ async function verifyAndApplyProfileDecisions(
       await invalidateCachedRoadmap(toUserDataSnapshot(profile, userId), {
         alsoDecision: "target_role" in updates,
       });
+    }
+
+    if (!updateError && "target_role" in updates) {
+      // Phase 12 — fire-and-forget, same trigger app/(app)/profile.tsx and
+      // app/onboarding/summary.tsx call. "target_role" only ever lands in
+      // `updates` when matchesLive found it genuinely different from the
+      // live profile (see needsWrite above), so "genuinely changed" is
+      // already guaranteed here — a declined/unresolved decision never
+      // reaches this far (requiresNoApplication filters those out before
+      // categoryByIndex is even built). current_role/skills may have
+      // changed in this same combined write if other decisions were
+      // confirmed alongside the target-role change; effectiveProfile isn't
+      // computed yet at this point, so both are read from `updates` first,
+      // falling back to the pre-write profile for whichever one didn't
+      // change.
+      const newTargetRole = updates.target_role as string;
+      const newCurrentRole =
+        (updates.current_role as string | undefined) ??
+        profile.current_role ??
+        "";
+      const newSkills =
+        (updates.skills as string[] | undefined) ?? profile.skills ?? [];
+
+      triggerCapabilityAssessmentIfNeeded(
+        userId,
+        newCurrentRole,
+        newTargetRole,
+        newSkills,
+      );
     }
 
     if (updateError) {

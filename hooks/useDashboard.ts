@@ -5,6 +5,7 @@ import { findCachedRoadmap } from "./useRoadmap";
 import { useProfile } from "./useProfile";
 import { useProgress } from "./useProgress";
 
+import { isCapabilityAssessmentInProgress } from "../services/capabilityAssessmentService";
 import { getCareerStateWithSummary } from "../services/careerStateService";
 import { getMomentum } from "../services/momentumService";
 import { selectNextMove } from "../services/nextMoveEngine";
@@ -75,6 +76,16 @@ export function useDashboard() {
 
   const [missionLoading, setMissionLoading] = useState(true);
 
+  // Phase 12 — true only while a background capability assessment is
+  // actively being generated for the CURRENT target role AND the engine's
+  // best answer right now is still the generic Tier 2 fallback (i.e.
+  // there's genuinely nothing better to show yet). Never true once real
+  // capability-gap or roadmap data exists, and never touches nextMove
+  // itself — this only tells Home whether the generic mission it's about
+  // to render is a stand-in that's about to be replaced, not VELYQO's
+  // considered recommendation.
+  const [assessmentInProgress, setAssessmentInProgress] = useState(false);
+
   // Step 8's fix, preserved unchanged: mission selection must refresh on
   // focus, not just on mount/profile-field change, since Step 7's evidence
   // flow can change a capability's status/priority from OUTSIDE Home
@@ -96,6 +107,7 @@ export function useDashboard() {
       if (profileError) {
         setNextMove(PLACEHOLDER_NEXT_MOVE);
         setEstimatedJourney(null);
+        setAssessmentInProgress(false);
         setMissionLoading(false);
         hasLoadedMissionOnce.current = true;
         return;
@@ -108,6 +120,7 @@ export function useDashboard() {
       if (!userData.userId) {
         setNextMove(PLACEHOLDER_NEXT_MOVE);
         setEstimatedJourney(null);
+        setAssessmentInProgress(false);
         setMissionLoading(false);
         hasLoadedMissionOnce.current = true;
         return;
@@ -147,6 +160,7 @@ export function useDashboard() {
           if (showFullLoading) {
             setNextMove(PLACEHOLDER_NEXT_MOVE);
             setEstimatedJourney(null);
+            setAssessmentInProgress(false);
           }
 
           setMissionLoading(false);
@@ -159,6 +173,19 @@ export function useDashboard() {
 
         setNextMove(move);
         setEstimatedJourney(roadmap?.estimatedJourney ?? null);
+
+        // Phase 12 — only meaningful when the engine actually fell through
+        // to Tier 2: a real capability_gap/roadmap mission, or the honest
+        // "needs_destination"/"up_to_date" states, are never masked or
+        // relabelled by this.
+        setAssessmentInProgress(
+          move.type === "generic" &&
+            isCapabilityAssessmentInProgress(
+              userData.userId as string,
+              targetRole,
+            ),
+        );
+
         setMissionLoading(false);
       };
 
@@ -198,11 +225,12 @@ export function useDashboard() {
       careerBrief: {
         nextMove,
         estimatedJourney,
+        assessmentInProgress,
 
         readiness: progress.career_readiness,
       },
     };
-  }, [userData, progress, nextMove, estimatedJourney]);
+  }, [userData, progress, nextMove, estimatedJourney, assessmentInProgress]);
 
   return {
     loading: profileLoading || progressLoading || missionLoading,

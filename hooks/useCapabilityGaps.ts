@@ -2,106 +2,10 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useProfile } from "./useProfile";
-import { generateCapabilities } from "../services/capabilityGenerationService";
-import { saveCapabilityAssessment } from "../services/capabilityPersistenceService";
-import { applyPriorityRanking } from "../services/capabilityPriorityService";
+import { loadOrCreateCapabilityAssessment } from "../services/capabilityAssessmentService";
 import { CapabilityGap } from "../types/capability";
 
 export type CapabilityGapsPhase = "no_target_role" | "loading" | "ready" | "error";
-
-type LoadResult =
-  | { data: CapabilityGap[]; error: null }
-  | { data: null; error: string };
-
-/**
- * Read-before-write: only generates and persists when no assessment exists
- * yet for this exact user + target role. This is the primary defense
- * against creating a duplicate assessment on a revisit — the in-flight
- * guard in the hook below additionally protects a single hook instance
- * against triggering a second concurrent run before this settles (see the
- * Step 4 report for the one race this does not close).
- *
- * applyPriorityRanking both reads the existing assessment (serving the
- * exists-check below) and brings its priority_rank values up to date on a
- * revisit, without a separate round trip — though in the steady state
- * (ranking already applied at generation time, see below) it does nothing
- * beyond that one read, since an assessment's priority_gap rows are ranked
- * as one unit and are never partially re-ranked. Treated as fatal here on
- * the same basis Step 4 treated a plain getCapabilityGaps failure as
- * fatal: it's this call's read that decides whether an assessment exists
- * at all, so a failure here means that question itself couldn't be
- * answered.
- */
-async function loadOrCreateAssessment(
-  userId: string,
-  currentRole: string,
-  targetRole: string,
-  confirmedSkills: string[],
-): Promise<LoadResult> {
-  const rankedExisting = await applyPriorityRanking(userId, targetRole);
-
-  if (rankedExisting.error !== null) {
-    // rankedExisting.error is an internal/backend string (e.g. a raw
-    // Postgrest error message) never meant for a user to read directly —
-    // logged for debugging, replaced with the same honest, generic wording
-    // used by every other failure branch in this function.
-    console.warn("Capability gap read failed:", rankedExisting.error);
-
-    return {
-      data: null,
-      error: "We couldn't load your capability assessment. Please try again.",
-    };
-  }
-
-  if (rankedExisting.data.length > 0) {
-    return { data: rankedExisting.data, error: null };
-  }
-
-  const generated = await generateCapabilities({
-    currentRole,
-    targetRole,
-    skills: confirmedSkills,
-  });
-
-  if (!generated) {
-    return {
-      data: null,
-      error: "We couldn't generate your capability assessment. Please try again.",
-    };
-  }
-
-  const saved = await saveCapabilityAssessment(userId, targetRole, generated);
-
-  if (saved.error !== null) {
-    // Same as above — saved.error is an internal string (e.g.
-    // "refusing_to_persist_out_of_bounds_count (...)"), not user-facing
-    // copy.
-    console.warn("Capability assessment save failed:", saved.error);
-
-    return {
-      data: null,
-      error: "We couldn't generate your capability assessment. Please try again.",
-    };
-  }
-
-  // Pass the true AI generation order (still available here, before it gets
-  // flattened by persistence — see applyPriorityRanking's doc comment) so
-  // this first ranking pass is exact, not the (created_at, id) fallback.
-  // Non-fatal: a fresh, already-valid, already-persisted assessment
-  // shouldn't be discarded just because this refinement failed, and the
-  // screen doesn't display priority_rank anyway.
-  const ranked = await applyPriorityRanking(
-    userId,
-    targetRole,
-    generated.map((capability) => capability.name),
-  );
-
-  if (ranked.error !== null) {
-    return { data: saved.data, error: null };
-  }
-
-  return { data: ranked.data, error: null };
-}
 
 /**
  * Orchestrates the Career Gap screen's data: reads an existing assessment,
@@ -184,7 +88,7 @@ export function useCapabilityGaps() {
         setErrorMessage(null);
       }
 
-      loadOrCreateAssessment(
+      loadOrCreateCapabilityAssessment(
         userData.userId,
         userData.currentRole,
         targetRole,

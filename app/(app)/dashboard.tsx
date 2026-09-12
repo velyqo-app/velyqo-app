@@ -173,6 +173,14 @@ export default function DashboardScreen() {
         onPress={goToJourney}
       />
 
+      {careerBrief.assessmentInProgress ? (
+        <Text style={styles.assessmentInProgressHint}>
+          We&apos;re preparing your capability assessment for{" "}
+          {userData.targetRole} — the mission below is a starting point
+          until it&apos;s ready.
+        </Text>
+      ) : null}
+
       <NextMoveCard
         title={careerBrief.nextMove.title}
         description={careerBrief.nextMove.description}
@@ -227,5 +235,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: "center",
     marginBottom: 20,
+  },
+
+  assessmentInProgressHint: {
+    color: Colors.subtext,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 8,
   },
 });

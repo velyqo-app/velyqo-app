@@ -5,6 +5,7 @@ import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-n
 import { UserContext } from "../../context/UserContext";
 import { supabase } from "../../lib/supabase";
 import { getCurrentUser } from "../../services/authService";
+import { triggerCapabilityAssessmentIfNeeded } from "../../services/capabilityAssessmentService";
 import { toCountryCode } from "../../services/countryService";
 import { loadSalary, resolveEndpoint } from "../../services/roadmapService";
 import {
@@ -125,6 +126,21 @@ export default function SummaryScreen() {
       console.log(error);
       Alert.alert("Save Failed", error.message);
       return;
+    }
+
+    // Phase 12 — fire-and-forget: the target role has already saved
+    // successfully above, and navigation below must never wait on or
+    // depend on this succeeding. A blank target role never reaches here
+    // (the earlier onboarding steps require one), but this is guarded
+    // again anyway since triggerCapabilityAssessmentIfNeeded is meant to
+    // be safe to call unconditionally.
+    if (userData.targetRole.trim()) {
+      triggerCapabilityAssessmentIfNeeded(
+        user.id,
+        userData.currentRole,
+        userData.targetRole,
+        userData.skills,
+      );
     }
 
     router.replace("/dashboard");
