@@ -1,6 +1,7 @@
-import { router, useLocalSearchParams, useRoute } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useRef, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
@@ -195,35 +196,27 @@ export default function MissionCompleteScreen() {
       capabilityName?: string;
     }>();
 
-  // React Navigation assigns a fresh `key` to a route on every navigation
-  // action — including router.replace() to this SAME screen — even if the
-  // underlying component instance is reused rather than remounted (expo-
-  // router's Tabs.Screen keeps hidden screens like this one mounted in the
-  // background; see the pre-existing, out-of-scope "route-instance reuse"
-  // issue noted elsewhere). That makes route.key a reliable, already-
-  // existing identifier for "this specific navigation to Mission Complete"
-  // — stable across a Retry tap (which never navigates, just re-runs local
-  // state) or an accidental double-invoke of the mount effect, but
-  // guaranteed different for any later, genuinely separate completion. No
-  // new identifier was invented — this is existing React Navigation
-  // infrastructure (@react-navigation/native, already a dependency).
-  const route = useRoute();
-
   const [saving, setSaving] = useState(true);
   const [error, setError] = useState(false);
   const [statusTransition, setStatusTransition] =
     useState<CapabilityStatusTransition | null>(null);
 
-  // The route.key for which capability evidence has already been
-  // attempted, if any. A Retry (or a same-instance double-invoke) reuses
-  // the SAME route.key and is refused; a genuinely new completion — even
-  // for the identical capability, with identical mission text — arrives
-  // via a fresh router.replace() and therefore a fresh route.key, and is
-  // correctly allowed through. This intentionally does NOT protect the
-  // mission-completion/journal-creation steps above it — see the Step 7
-  // correction report for why that remains an accepted, disclosed,
-  // out-of-scope limitation.
-  const evidenceAttemptedForRouteKey = useRef<string | null>(null);
+  // Phase 13 correction — this screen is a hidden Tabs.Screen (see
+  // _layout.tsx) that expo-router/React Navigation keeps mounted in the
+  // background rather than unmounting on blur, and TabRouter reuses a
+  // route's existing `key` on every navigation to it when the screen has no
+  // `getId` configured (none of this app's Tabs.Screen entries do) — so
+  // route.key is NOT a valid "is this a new visit" signal here (it never
+  // changes), regardless of capabilityGapId/missionTitle being identical
+  // across two separate completions of the same deterministic capability
+  // mission. This ref instead tracks "has capability evidence already been
+  // attempted for the CURRENT focus" and is deliberately re-armed (set back
+  // to false) at the start of every genuine focus below — a real re-entry
+  // into Mission Complete, which for this hidden, tab-bar-less screen only
+  // ever happens via an explicit navigation from ai-coach.tsx's Complete
+  // Mission button, never from an unrelated re-render while already
+  // focused.
+  const evidenceAttemptedForThisVisit = useRef(false);
 
   const attemptCapabilityEvidence = useCallback(
     (userId: string, journalEntryId: string | null) => {
@@ -231,11 +224,11 @@ export default function MissionCompleteScreen() {
         return;
       }
 
-      if (evidenceAttemptedForRouteKey.current === route.key) {
+      if (evidenceAttemptedForThisVisit.current) {
         return;
       }
 
-      evidenceAttemptedForRouteKey.current = route.key;
+      evidenceAttemptedForThisVisit.current = true;
 
       recordCapabilityEvidence(
         userId,
@@ -260,36 +253,73 @@ export default function MissionCompleteScreen() {
           );
         });
     },
-    [capabilityGapId, capabilityName, route.key],
+    [capabilityGapId, capabilityName],
   );
 
-  useEffect(() => {
-    const run = async () => {
-      try {
-        const result = await saveMissionProgress(
-          missionTitle ?? "",
-          missionDescription ?? "",
-        );
+  // Replaces the previous plain mount `useEffect`: a kept-mounted Tabs.Screen
+  // only ever gets a fresh mount the very FIRST time the app renders it, so a
+  // mount effect alone cannot detect visit #2+. useFocusEffect instead fires
+  // once per genuine focus transition (a real navigation making this screen
+  // the active tab) — driven by React Navigation's own focus/blur events,
+  // never by an unrelated re-render or state change while this screen stays
+  // focused, so this cannot loop while the user simply stays on this screen.
+  // Since Mission Complete has no tab-bar button (href: null) and is reached
+  // only via an explicit push/replace from ai-coach.tsx, every focus event
+  // this fires for corresponds exactly to "a new visit," matching the
+  // required semantics without inventing a new identifier or touching
+  // recordCapabilityEvidence's own, unchanged idempotency guard.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
 
-        if (result) {
-          attemptCapabilityEvidence(result.userId, result.journalEntryId);
+      // A fresh visit: re-arm the evidence guard and reset the UI to the
+      // same loading state a genuine first mount would show, rather than
+      // leaving the previous visit's success/error/acknowledgement on
+      // screen while this visit's own save is still in flight.
+      evidenceAttemptedForThisVisit.current = false;
+      setStatusTransition(null);
+      setError(false);
+      setSaving(true);
+
+      const run = async () => {
+        try {
+          const result = await saveMissionProgress(
+            missionTitle ?? "",
+            missionDescription ?? "",
+          );
+
+          if (!active) {
+            return;
+          }
+
+          if (result) {
+            attemptCapabilityEvidence(result.userId, result.journalEntryId);
+          }
+
+          setSaving(false);
+        } catch (thrown) {
+          if (!active) {
+            return;
+          }
+
+          // Either write can fail independently (a thrown network error, or
+          // a returned Supabase error neither call throws on by itself) —
+          // either way the user must see a real retry, not a spinner that
+          // never resolves.
+          console.warn("Mission completion failed:", thrown);
+
+          setError(true);
+          setSaving(false);
         }
+      };
 
-        setSaving(false);
-      } catch (thrown) {
-        // Either write can fail independently (a thrown network error, or a
-        // returned Supabase error neither call throws on by itself) —
-        // either way the user must see a real retry, not a spinner that
-        // never resolves.
-        console.warn("Mission completion failed:", thrown);
+      run();
 
-        setError(true);
-        setSaving(false);
-      }
-    };
-
-    run();
-  }, [missionTitle, missionDescription, attemptCapabilityEvidence]);
+      return () => {
+        active = false;
+      };
+    }, [missionTitle, missionDescription, attemptCapabilityEvidence]),
+  );
 
   const retry = () => {
     setSaving(true);
