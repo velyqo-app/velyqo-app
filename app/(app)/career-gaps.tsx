@@ -1,5 +1,14 @@
-import { router } from "expo-router";
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback } from "react";
+import {
+  BackHandler,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
@@ -90,6 +99,39 @@ function CapabilityRow({
 
 export default function CapabilityGapsScreen() {
   const { phase, capabilities, errorMessage, retry } = useCapabilityGaps();
+
+  // This screen is reached by push from Journey's Roadmap view
+  // (components/journey/RoadmapView.tsx), but it lives in the same Tabs
+  // navigator as every other screen (href: null in _layout.tsx) — and that
+  // Tabs navigator's backBehavior is "initialRoute" (Home takes priority
+  // when hardware Back is pressed anywhere else in the tab bar). Left
+  // alone, Android hardware Back here would jump straight to Home instead
+  // of returning to Journey, since a tab navigator's default Back handling
+  // doesn't retrace push-style history the way a Stack does. Mirrors
+  // capability-evidence.tsx's own fix for the identical situation.
+  //
+  // No `view` param is passed back (unlike capability-evidence.tsx, which
+  // forces `view: "story"`): this screen is only ever reached from
+  // Journey's Roadmap view, and Roadmap is already Journey's default view
+  // (app/(app)/timeline.tsx), so a plain `/timeline` push lands in the
+  // right place with no extra state to restore.
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== "android") {
+        return;
+      }
+
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        () => {
+          router.push("/timeline");
+          return true;
+        },
+      );
+
+      return () => subscription.remove();
+    }, []),
+  );
 
   if (phase === "loading") {
     return <LoadingScreen message="Assessing your capability gaps..." />;
