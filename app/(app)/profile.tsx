@@ -17,6 +17,7 @@ import Card from "../../components/ui/Card";
 import { Colors } from "../../constants/theme";
 import { UserContext, UserData } from "../../context/UserContext";
 import { signOut } from "../../services/authService";
+import { clearCoachHistory } from "../../services/coachHistoryService";
 
 import OccupationAutocomplete from "../../components/OccupationAutocomplete";
 import CareerBlueprintCard from "../../components/profile/CareerBlueprintCard";
@@ -428,6 +429,16 @@ export default function ProfileScreen() {
     // Drop the previous user's details so they can't briefly show for whoever
     // signs in next.
     clearUserData();
+
+    // Coach conversations can carry more candid content than a cached
+    // roadmap — per-user key scoping already isolates it from whoever
+    // signs in next on this device (see coachHistoryService.ts), but this
+    // removes it outright rather than merely leaving it unreachable.
+    // Fire-and-forget: sign-out must not wait on, or fail because of, a
+    // local storage write.
+    if (userData.userId) {
+      clearCoachHistory(userData.userId);
+    }
 
     router.replace("/");
   };

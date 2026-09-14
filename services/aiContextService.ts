@@ -6,6 +6,12 @@ import { JournalEntry } from "../types/journal";
 import { Profile } from "../types/profile";
 import { Progress } from "../types/progress";
 import { getCurrentUser } from "./authService";
+import { getAllCapabilityGapsForUser } from "./capabilityGapService";
+import { getAllCapabilityEvidenceForUser } from "./capabilityEvidenceService";
+import {
+  assembleCareerStandingBrief,
+  CareerStandingBrief,
+} from "./careerStandingBriefService";
 import { fallbackMission, missionFromRoadmapStep } from "./careerMissionService";
 import { getJournal } from "./journalService";
 import { getMomentum } from "./momentumService";
@@ -46,6 +52,47 @@ function toRoadmapLookupInput(profile: Profile, userId: string): UserData {
 
     profileLoaded: true,
   };
+}
+
+/**
+ * Phase 14 — assembles the Career Standing Brief for Coach, or null on any
+ * read failure. Enrichment only: never thrown, never allowed to affect
+ * whether getAIContext itself succeeds — a failure here is logged and
+ * degrades to null, exactly like `roadmap` already can. Both underlying
+ * reads (getAllCapabilityGapsForUser / getAllCapabilityEvidenceForUser) are
+ * existing, unmodified, user-scoped bulk reads — no new query shape, no
+ * per-capability read, no N+1.
+ */
+async function loadStandingBrief(
+  userId: string,
+  targetRole: string,
+): Promise<CareerStandingBrief | null> {
+  const [gapsResult, evidenceResult] = await Promise.all([
+    getAllCapabilityGapsForUser(userId),
+    getAllCapabilityEvidenceForUser(userId),
+  ]);
+
+  if (gapsResult.error || !gapsResult.data) {
+    console.warn(
+      "AIContext: capability gaps read failed for Career Standing Brief:",
+      gapsResult.error,
+    );
+    return null;
+  }
+
+  if (evidenceResult.error || !evidenceResult.data) {
+    console.warn(
+      "AIContext: capability evidence read failed for Career Standing Brief:",
+      evidenceResult.error,
+    );
+    return null;
+  }
+
+  return assembleCareerStandingBrief(
+    targetRole,
+    gapsResult.data,
+    evidenceResult.data,
+  );
 }
 
 export async function getAIContext(): Promise<AIContext | null> {
@@ -91,9 +138,10 @@ export async function getAIContext(): Promise<AIContext | null> {
   // otherwise — so the AI's own context always matches what the user sees.
   // getStoredPriority is the same read-only peek Profile uses to display a
   // resolved Destination Decision — never triggers the conflict check itself.
-  const [roadmap, priority] = await Promise.all([
+  const [roadmap, priority, standingBrief] = await Promise.all([
     findCachedRoadmap(lookupInput),
     getStoredPriority(lookupInput),
+    loadStandingBrief(user.id, resolvedProfile.target_role ?? ""),
   ]);
 
   const mission =
@@ -119,5 +167,7 @@ export async function getAIContext(): Promise<AIContext | null> {
     roadmap,
 
     priority,
+
+    standingBrief,
   };
 }

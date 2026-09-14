@@ -1,3 +1,4 @@
+import { CareerStandingBrief } from "../services/careerStandingBriefService";
 import { Momentum } from "../services/momentumService";
 import { SalaryPriority } from "./careerContext";
 import { JournalEntry } from "./journal";
@@ -21,4 +22,13 @@ export interface AIContext {
   /** The user's stored salary-priority choice from a resolved Destination
    * Decision, or null when none has ever been made for their current target. */
   priority: SalaryPriority | null;
+
+  /**
+   * Phase 14 — Career Standing Intelligence. VELYQO's own deterministic,
+   * current-target-role-only summary of accumulated capability/evidence
+   * standing (see services/careerStandingBriefService.ts). Enrichment
+   * only: null whenever the underlying reads fail, or the user has no
+   * target role yet — Coach must remain fully usable either way.
+   */
+  standingBrief: CareerStandingBrief | null;
 }

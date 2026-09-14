@@ -1,4 +1,5 @@
 import { AIContext } from "../types/ai";
+import { CareerStandingBrief } from "./careerStandingBriefService";
 import {
   EDUCATION_LEVEL_LABELS,
   EXPERIENCE_LEVEL_LABELS,
@@ -383,6 +384,79 @@ no commentary before or after.
 `;
 }
 
+/** iso.slice(0, 10) — a plain YYYY-MM-DD calendar date, deterministic and
+ * timezone-free, appropriate for a fact handed to the model as text (unlike
+ * a UI date display, this never needs locale formatting). */
+function formatBriefDate(iso: string): string {
+  return iso.slice(0, 10);
+}
+
+/**
+ * Phase 14 — Career Standing Intelligence. Builds the optional "ACCUMULATED
+ * CAREER STANDING" prompt section from an already-assembled
+ * CareerStandingBrief, or returns null when there is nothing genuinely to
+ * say (no brief, no target role, and nothing else populated) — the caller
+ * omits the whole section in that case, exactly like `roadmapBlock` already
+ * degrades to a plain "no roadmap yet" line rather than an empty block.
+ *
+ * Deliberately never renders the raw `status` word ("developing"/
+ * "strength") anywhere here — each capability with mission evidence is
+ * described purely by how many completed VELYQO missions produced it,
+ * which is both the actual, honest semantics (capabilityStatusService's own
+ * "strength" ceiling is exactly "two or more mission_completion evidence
+ * events for this capability", never independent real-world verification)
+ * and the safest way to guarantee the model is never even handed a word
+ * ("strength") it could parrot back to the user as "proven" or "verified".
+ */
+function buildStandingBlock(brief: CareerStandingBrief | null): string | null {
+  if (!brief || !brief.targetRole) {
+    return null;
+  }
+
+  const lines: string[] = [`Current target role: ${brief.targetRole}`];
+
+  if (brief.currentPriorityCapability) {
+    lines.push(
+      "",
+      `Current priority capability: ${brief.currentPriorityCapability.capabilityName}`,
+      `This has remained VELYQO's current priority gap since ${formatBriefDate(
+        brief.currentPriorityCapability.priorityGapSince,
+      )}.`,
+    );
+  }
+
+  if (brief.capabilitiesWithMissionEvidence.length > 0) {
+    const items = brief.capabilitiesWithMissionEvidence
+      .map((capability) =>
+        capability.status === "strength"
+          ? `${capability.capabilityName} (two or more completed VELYQO missions)`
+          : `${capability.capabilityName} (one completed VELYQO mission)`,
+      )
+      .join(", ");
+
+    lines.push("", `Capabilities with completed VELYQO missions: ${items}`);
+  }
+
+  if (brief.latestMissionEvidenceDate) {
+    lines.push(
+      "",
+      `Most recent VELYQO mission evidence: ${formatBriefDate(
+        brief.latestMissionEvidenceDate,
+      )}`,
+    );
+  }
+
+  // Only the target role line is non-empty and nothing else was populated —
+  // an honest "target role set, nothing else recorded yet" case, not worth
+  // a whole labelled section for a single line the USER PROFILE block above
+  // already effectively states via profile.target_role.
+  if (lines.length === 1) {
+    return null;
+  }
+
+  return lines.join("\n");
+}
+
 /**
  * Builds the Coach conversation prompt.
  *
@@ -398,7 +472,8 @@ no commentary before or after.
  * where that verification happens).
  */
 export function buildCoachPrompt(context: AIContext, message: string): string {
-  const { profile, mission, progress, momentum, roadmap, priority } = context;
+  const { profile, mission, progress, momentum, roadmap, priority, standingBrief } =
+    context;
 
   const experience = profile.experience_level
     ? EXPERIENCE_LEVEL_LABELS[profile.experience_level as ExperienceLevel]
@@ -426,6 +501,8 @@ Why this milestone matters for them: ${currentStep.rationale || "Not specified"}
 Typical time for this milestone: ${currentStep.estimatedTime || NOT_SET}
 Total steps in their roadmap: ${stepsTotal}`
     : "This person has no generated roadmap yet.";
+
+  const standingBlock = buildStandingBlock(standingBrief);
 
   return `
 You are Velyqo, a personal AI Career Coach embedded in the VELYQO app — not a
@@ -458,6 +535,29 @@ YOUR NEXT MOVE
   better answer. Use judgement.
 - If a detail below is "${NOT_SET}", say so honestly or ask for it rather
   than assuming a value.
+${
+  standingBlock
+    ? `- The "ACCUMULATED CAREER STANDING" section below is VELYQO's own
+  accumulated record from completed in-app missions and check-ins for this
+  person — it is not external or professional verification of anything.
+  Use it when it's actually relevant to their question, the way a coach
+  who already knows this person's history would — do not mechanically
+  repeat it every reply.
+- Connect advice back to their current target role and this accumulated
+  standing where it genuinely helps.
+- A capability with completed VELYQO missions means VELYQO missions tied
+  to it were completed in the app — never describe this as "verified,"
+  "certified," "proven," or "professionally demonstrated."
+- Never treat how long something has stood as a priority gap as a
+  judgment — never say the user is "behind," "stuck," or "struggling";
+  if you mention it at all, state it as a neutral fact.
+- Never invent evidence, progress, or a capability that isn't in that
+  section.
+- Never expose internal field or database terminology (e.g. never say
+  "priority_gap," "capability_gaps," or "status") — describe things in
+  plain language instead.`
+    : ""
+}
 
 =========================
 USER PROFILE
@@ -505,6 +605,16 @@ ${progress.career_readiness}%
 
 Momentum:
 ${momentum.level}
+${
+  standingBlock
+    ? `
+=========================
+ACCUMULATED CAREER STANDING
+=========================
+
+${standingBlock}`
+    : ""
+}
 
 =========================
 USER QUESTION
