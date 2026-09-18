@@ -1,4 +1,5 @@
 import { AIContext } from "../types/ai";
+import { RecentDirectionChange } from "./careerDirectionHistoryService";
 import { CareerStandingBrief } from "./careerStandingBriefService";
 import {
   EDUCATION_LEVEL_LABELS,
@@ -458,6 +459,57 @@ function buildStandingBlock(brief: CareerStandingBrief | null): string | null {
 }
 
 /**
+ * Phase 15 — Career Direction History. Builds the optional "PRIOR CAREER
+ * DIRECTION" prompt section from Coach's compact, most-recent-only
+ * projection, or returns null when there is none (the user has never
+ * changed their target role, or the read failed) — the caller omits the
+ * whole section in that case, mirroring buildStandingBlock's own pattern.
+ *
+ * This is a factual record of ONE past target-role change — never a
+ * psychological assessment. It states only that a change happened, when,
+ * the user's own recorded reason (verbatim, if any), and which capabilities
+ * accumulated completed-mission evidence while that was the target role.
+ * Never infers why the change happened, never a score, never a judgment.
+ */
+function buildDirectionChangeBlock(
+  directionChange: RecentDirectionChange | null,
+): string | null {
+  if (!directionChange) {
+    return null;
+  }
+
+  const lines: string[] = [
+    `You previously targeted: ${directionChange.previousTargetRole}`,
+    `You changed your target role on ${formatBriefDate(directionChange.changedAt)}.`,
+  ];
+
+  lines.push(
+    directionChange.reasonRecorded
+      ? `You recorded this reason: "${directionChange.reasonRecorded}"`
+      : "No reason was recorded for this change.",
+  );
+
+  if (directionChange.capabilitiesWithMissionEvidence.length > 0) {
+    const items = directionChange.capabilitiesWithMissionEvidence
+      .map(
+        (capability) =>
+          `${capability.capabilityName} (${capability.missionEvidenceCount} completed mission${
+            capability.missionEvidenceCount === 1 ? "" : "s"
+          })`,
+      )
+      .join(", ");
+
+    lines.push(`You completed VELYQO missions associated with: ${items}`);
+  } else {
+    lines.push(
+      "No VELYQO missions were completed while this was your target role.",
+    );
+  }
+
+  return lines.join("\n");
+}
+
+/**
  * Builds the Coach conversation prompt.
  *
  * `profile` is a raw database row, so every field here must be snake_case.
@@ -472,8 +524,16 @@ function buildStandingBlock(brief: CareerStandingBrief | null): string | null {
  * where that verification happens).
  */
 export function buildCoachPrompt(context: AIContext, message: string): string {
-  const { profile, mission, progress, momentum, roadmap, priority, standingBrief } =
-    context;
+  const {
+    profile,
+    mission,
+    progress,
+    momentum,
+    roadmap,
+    priority,
+    standingBrief,
+    directionChange,
+  } = context;
 
   const experience = profile.experience_level
     ? EXPERIENCE_LEVEL_LABELS[profile.experience_level as ExperienceLevel]
@@ -503,6 +563,7 @@ Total steps in their roadmap: ${stepsTotal}`
     : "This person has no generated roadmap yet.";
 
   const standingBlock = buildStandingBlock(standingBrief);
+  const directionChangeBlock = buildDirectionChangeBlock(directionChange);
 
   return `
 You are Velyqo, a personal AI Career Coach embedded in the VELYQO app — not a
@@ -556,6 +617,22 @@ ${
 - Never expose internal field or database terminology (e.g. never say
   "priority_gap," "capability_gaps," or "status") — describe things in
   plain language instead.`
+    : ""
+}
+${
+  directionChangeBlock
+    ? `- The "PRIOR CAREER DIRECTION" section below is a factual record of one
+  past target-role change — never a psychological assessment. State it
+  only if it's genuinely relevant to the user's question.
+- Never describe that change as indecisive, a failure, giving up, or
+  being behind — state only that it happened, and when.
+- Never invent or guess why the user changed direction beyond the
+  recorded reason text, if any. If none was recorded, say so plainly —
+  never speculate.
+- A completed VELYQO mission there means an in-app mission was
+  completed — never say "proven," "verified," or "demonstrated ability."
+- Never expose internal field or database terminology (e.g. never say
+  "episode," "target_role," "capability_gaps," or "source_type").`
     : ""
 }
 
@@ -613,6 +690,16 @@ ACCUMULATED CAREER STANDING
 =========================
 
 ${standingBlock}`
+    : ""
+}
+${
+  directionChangeBlock
+    ? `
+=========================
+PRIOR CAREER DIRECTION
+=========================
+
+${directionChangeBlock}`
     : ""
 }
 

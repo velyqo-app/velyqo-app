@@ -12,6 +12,13 @@ import {
   assembleCareerStandingBrief,
   CareerStandingBrief,
 } from "./careerStandingBriefService";
+import {
+  deriveMostRecentDirectionChange,
+  reconstructCareerDirectionHistory,
+  RecentDirectionChange,
+} from "./careerDirectionHistoryService";
+import { getCareerCheckins } from "./careerCheckinService";
+import { getCareerCheckinConfirmations } from "./careerCheckinConfirmationService";
 import { fallbackMission, missionFromRoadmapStep } from "./careerMissionService";
 import { getJournal } from "./journalService";
 import { getMomentum } from "./momentumService";
@@ -95,6 +102,72 @@ async function loadStandingBrief(
   );
 }
 
+/**
+ * Phase 15 — assembles the compact Career Direction History projection for
+ * Coach (the most recent prior target-role destination only — never the
+ * full episode history), or null on any read failure. Enrichment only:
+ * never thrown, never allowed to affect whether getAIContext itself
+ * succeeds — mirrors loadStandingBrief's own degrade-to-null shape exactly.
+ * Every underlying read is an existing, unmodified, user-scoped bulk read —
+ * no new query shape, no per-episode/per-checkin read, no N+1.
+ */
+async function loadDirectionChange(
+  userId: string,
+  targetRole: string,
+  journal: JournalEntry[],
+): Promise<RecentDirectionChange | null> {
+  const [gapsResult, evidenceResult, checkinsResult, confirmationsResult] =
+    await Promise.all([
+      getAllCapabilityGapsForUser(userId),
+      getAllCapabilityEvidenceForUser(userId),
+      getCareerCheckins(userId),
+      getCareerCheckinConfirmations(userId),
+    ]);
+
+  if (gapsResult.error || !gapsResult.data) {
+    console.warn(
+      "AIContext: capability gaps read failed for Career Direction History:",
+      gapsResult.error,
+    );
+    return null;
+  }
+
+  if (evidenceResult.error || !evidenceResult.data) {
+    console.warn(
+      "AIContext: capability evidence read failed for Career Direction History:",
+      evidenceResult.error,
+    );
+    return null;
+  }
+
+  if (checkinsResult.error || !checkinsResult.data) {
+    console.warn(
+      "AIContext: career checkins read failed for Career Direction History:",
+      checkinsResult.error,
+    );
+    return null;
+  }
+
+  if (confirmationsResult.error || !confirmationsResult.data) {
+    console.warn(
+      "AIContext: career checkin confirmations read failed for Career Direction History:",
+      confirmationsResult.error,
+    );
+    return null;
+  }
+
+  const history = reconstructCareerDirectionHistory(
+    targetRole,
+    journal,
+    checkinsResult.data,
+    confirmationsResult.data,
+    gapsResult.data,
+    evidenceResult.data,
+  );
+
+  return deriveMostRecentDirectionChange(history);
+}
+
 export async function getAIContext(): Promise<AIContext | null> {
   const {
     data: { user },
@@ -132,16 +205,23 @@ export async function getAIContext(): Promise<AIContext | null> {
 
   const lookupInput = toRoadmapLookupInput(resolvedProfile, user.id);
 
+  const resolvedJournal = (journal ?? []) as JournalEntry[];
+
   // Same authoritative source as Dashboard's Today's Mission: a read-only
   // peek at an already-cached roadmap, never a generation trigger. Tier 1
   // (real next step) when one exists, Tier 2 (deterministic fallback)
   // otherwise — so the AI's own context always matches what the user sees.
   // getStoredPriority is the same read-only peek Profile uses to display a
   // resolved Destination Decision — never triggers the conflict check itself.
-  const [roadmap, priority, standingBrief] = await Promise.all([
+  const [roadmap, priority, standingBrief, directionChange] = await Promise.all([
     findCachedRoadmap(lookupInput),
     getStoredPriority(lookupInput),
     loadStandingBrief(user.id, resolvedProfile.target_role ?? ""),
+    loadDirectionChange(
+      user.id,
+      resolvedProfile.target_role ?? "",
+      resolvedJournal,
+    ),
   ]);
 
   const mission =
@@ -162,12 +242,14 @@ export async function getAIContext(): Promise<AIContext | null> {
 
     momentum: getMomentum(resolvedProgress.current_streak),
 
-    journal: (journal ?? []) as JournalEntry[],
+    journal: resolvedJournal,
 
     roadmap,
 
     priority,
 
     standingBrief,
+
+    directionChange,
   };
 }

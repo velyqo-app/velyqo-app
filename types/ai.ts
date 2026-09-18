@@ -1,3 +1,4 @@
+import { RecentDirectionChange } from "../services/careerDirectionHistoryService";
 import { CareerStandingBrief } from "../services/careerStandingBriefService";
 import { Momentum } from "../services/momentumService";
 import { SalaryPriority } from "./careerContext";
@@ -31,4 +32,14 @@ export interface AIContext {
    * target role yet — Coach must remain fully usable either way.
    */
   standingBrief: CareerStandingBrief | null;
+
+  /**
+   * Phase 15 — Career Direction History. The most recent prior target-role
+   * destination only (see services/careerDirectionHistoryService.ts) —
+   * never the full historical episode list, which must not reach the Coach
+   * prompt. Enrichment only: null whenever the underlying reads fail, or
+   * the user has never changed their target role — Coach must remain fully
+   * usable either way.
+   */
+  directionChange: RecentDirectionChange | null;
 }
