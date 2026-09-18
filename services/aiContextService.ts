@@ -17,6 +17,11 @@ import {
   reconstructCareerDirectionHistory,
   RecentDirectionChange,
 } from "./careerDirectionHistoryService";
+import {
+  assembleCapabilityDevelopmentTimeline,
+  deriveRecentCapabilityMilestones,
+  RecentCapabilityMilestones,
+} from "./capabilityDevelopmentTimelineService";
 import { getCareerCheckins } from "./careerCheckinService";
 import { getCareerCheckinConfirmations } from "./careerCheckinConfirmationService";
 import { fallbackMission, missionFromRoadmapStep } from "./careerMissionService";
@@ -168,6 +173,52 @@ async function loadDirectionChange(
   return deriveMostRecentDirectionChange(history);
 }
 
+/**
+ * Phase 16 — assembles the compact Capability Development Timeline
+ * projection for Coach (the most recent reconstructed capability-status
+ * milestones for the current target role only — never the full timeline),
+ * or null on any read failure. Enrichment only: never thrown, never allowed
+ * to affect whether getAIContext itself succeeds — mirrors loadStandingBrief/
+ * loadDirectionChange's own degrade-to-null shape exactly. Exactly two
+ * existing, unmodified, user-scoped bulk reads — no new query shape, no
+ * per-capability read, no N+1. Deliberately not refactored to share
+ * loadStandingBrief's own gaps/evidence reads — each loader stays
+ * independently simple, matching the precedent Phase 15 already set.
+ */
+async function loadCapabilityMilestones(
+  userId: string,
+  targetRole: string,
+): Promise<RecentCapabilityMilestones | null> {
+  const [gapsResult, evidenceResult] = await Promise.all([
+    getAllCapabilityGapsForUser(userId),
+    getAllCapabilityEvidenceForUser(userId),
+  ]);
+
+  if (gapsResult.error || !gapsResult.data) {
+    console.warn(
+      "AIContext: capability gaps read failed for Capability Development Timeline:",
+      gapsResult.error,
+    );
+    return null;
+  }
+
+  if (evidenceResult.error || !evidenceResult.data) {
+    console.warn(
+      "AIContext: capability evidence read failed for Capability Development Timeline:",
+      evidenceResult.error,
+    );
+    return null;
+  }
+
+  const timeline = assembleCapabilityDevelopmentTimeline(
+    targetRole,
+    gapsResult.data,
+    evidenceResult.data,
+  );
+
+  return deriveRecentCapabilityMilestones(timeline);
+}
+
 export async function getAIContext(): Promise<AIContext | null> {
   const {
     data: { user },
@@ -213,16 +264,18 @@ export async function getAIContext(): Promise<AIContext | null> {
   // otherwise — so the AI's own context always matches what the user sees.
   // getStoredPriority is the same read-only peek Profile uses to display a
   // resolved Destination Decision — never triggers the conflict check itself.
-  const [roadmap, priority, standingBrief, directionChange] = await Promise.all([
-    findCachedRoadmap(lookupInput),
-    getStoredPriority(lookupInput),
-    loadStandingBrief(user.id, resolvedProfile.target_role ?? ""),
-    loadDirectionChange(
-      user.id,
-      resolvedProfile.target_role ?? "",
-      resolvedJournal,
-    ),
-  ]);
+  const [roadmap, priority, standingBrief, directionChange, capabilityMilestones] =
+    await Promise.all([
+      findCachedRoadmap(lookupInput),
+      getStoredPriority(lookupInput),
+      loadStandingBrief(user.id, resolvedProfile.target_role ?? ""),
+      loadDirectionChange(
+        user.id,
+        resolvedProfile.target_role ?? "",
+        resolvedJournal,
+      ),
+      loadCapabilityMilestones(user.id, resolvedProfile.target_role ?? ""),
+    ]);
 
   const mission =
     roadmap && roadmap.steps.length > 0
@@ -251,5 +304,7 @@ export async function getAIContext(): Promise<AIContext | null> {
     standingBrief,
 
     directionChange,
+
+    capabilityMilestones,
   };
 }

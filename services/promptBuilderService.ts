@@ -1,4 +1,5 @@
 import { AIContext } from "../types/ai";
+import { RecentCapabilityMilestones } from "./capabilityDevelopmentTimelineService";
 import { RecentDirectionChange } from "./careerDirectionHistoryService";
 import { CareerStandingBrief } from "./careerStandingBriefService";
 import {
@@ -509,6 +510,68 @@ function buildDirectionChangeBlock(
   return lines.join("\n");
 }
 
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+/**
+ * "D Month YYYY" (e.g. "2 August 2026") — parsed directly from the ISO
+ * string's own year/month/day components (never `Date`/
+ * `toLocaleDateString()`, which are locale- and timezone-sensitive), so
+ * this stays exactly as deterministic and timezone-free as formatBriefDate
+ * above. Used only for Capability Development Timeline wording, which is
+ * meant to read as standalone factual sentences rather than compact data
+ * rows — a deliberately different (but equally deterministic) format from
+ * formatBriefDate's terser YYYY-MM-DD.
+ */
+function formatMilestoneDate(iso: string): string {
+  const year = iso.slice(0, 4);
+  const month = Number(iso.slice(5, 7));
+  const day = Number(iso.slice(8, 10));
+
+  return `${day} ${MONTH_NAMES[month - 1]} ${year}`;
+}
+
+/**
+ * Phase 16 — Capability Development Timeline. Builds the optional
+ * "CAPABILITY GROWTH MILESTONES" prompt section from Coach's compact,
+ * most-recent-only projection, or returns null when there is none (no
+ * milestone has ever been reached for the current target, or the read
+ * failed) — mirrors buildStandingBlock/buildDirectionChangeBlock's own
+ * pattern.
+ *
+ * Each milestone is rendered as ONE independent, standalone sentence — no
+ * connecting word between lines, no elapsed-time figure (never computed
+ * anywhere in this feature), never a pace/speed/trend judgment. Two
+ * different capabilities' milestones must never read as though one caused,
+ * followed from, or explains the other.
+ */
+function buildCapabilityMilestonesBlock(
+  milestones: RecentCapabilityMilestones | null,
+): string | null {
+  if (!milestones || milestones.recentMilestones.length === 0) {
+    return null;
+  }
+
+  return milestones.recentMilestones
+    .map(
+      (event) =>
+        `${event.capabilityName} reached a ${event.milestone} level on ${formatMilestoneDate(event.reachedAt)}.`,
+    )
+    .join("\n");
+}
+
 /**
  * Builds the Coach conversation prompt.
  *
@@ -533,6 +596,7 @@ export function buildCoachPrompt(context: AIContext, message: string): string {
     priority,
     standingBrief,
     directionChange,
+    capabilityMilestones,
   } = context;
 
   const experience = profile.experience_level
@@ -564,6 +628,7 @@ Total steps in their roadmap: ${stepsTotal}`
 
   const standingBlock = buildStandingBlock(standingBrief);
   const directionChangeBlock = buildDirectionChangeBlock(directionChange);
+  const capabilityMilestonesBlock = buildCapabilityMilestonesBlock(capabilityMilestones);
 
   return `
 You are Velyqo, a personal AI Career Coach embedded in the VELYQO app — not a
@@ -635,6 +700,23 @@ ${
   "episode," "target_role," "capability_gaps," or "source_type").`
     : ""
 }
+${
+  capabilityMilestonesBlock
+    ? `- The "CAPABILITY GROWTH MILESTONES" section below lists independent,
+  dated facts about the current target role only — never imply that one
+  milestone caused, led to, followed from, or is otherwise related to
+  another. Do not use words like "after," "before," "then," "next,"
+  "since," or "following" to connect two different capabilities'
+  milestones.
+- Never describe the pace, speed, or timing of these milestones as fast,
+  slow, on track, or behind — state each one as a plain, standalone fact.
+- A capability reaching a developing or strength level there means
+  VELYQO's own evidence rules were met — never say "proven," "verified,"
+  or "mastered."
+- Never expose internal field or database terminology (e.g. never say
+  "milestone," "capability_gaps," or "reachedAt").`
+    : ""
+}
 
 =========================
 USER PROFILE
@@ -700,6 +782,16 @@ PRIOR CAREER DIRECTION
 =========================
 
 ${directionChangeBlock}`
+    : ""
+}
+${
+  capabilityMilestonesBlock
+    ? `
+=========================
+CAPABILITY GROWTH MILESTONES
+=========================
+
+${capabilityMilestonesBlock}`
     : ""
 }
 

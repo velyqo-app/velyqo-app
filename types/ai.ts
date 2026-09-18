@@ -1,3 +1,4 @@
+import { RecentCapabilityMilestones } from "../services/capabilityDevelopmentTimelineService";
 import { RecentDirectionChange } from "../services/careerDirectionHistoryService";
 import { CareerStandingBrief } from "../services/careerStandingBriefService";
 import { Momentum } from "../services/momentumService";
@@ -42,4 +43,16 @@ export interface AIContext {
    * usable either way.
    */
   directionChange: RecentDirectionChange | null;
+
+  /**
+   * Phase 16 — Capability Development Timeline. The most recent
+   * reconstructed capability-status milestones (developing/strength) for
+   * the current target role only (see
+   * services/capabilityDevelopmentTimelineService.ts) — never the full
+   * timeline, and never an elapsed-time value between entries, which this
+   * feature never computes anywhere. Enrichment only: null whenever the
+   * underlying reads fail, or no milestone has ever been reached — Coach
+   * must remain fully usable either way.
+   */
+  capabilityMilestones: RecentCapabilityMilestones | null;
 }
