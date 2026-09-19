@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,7 +18,9 @@ import ScreenHeader from "../../components/ui/ScreenHeader";
 
 import { Colors, Spacing } from "../../constants/theme";
 import { useCapabilityGaps } from "../../hooks/useCapabilityGaps";
+import { missionFromCapabilityGap } from "../../services/capabilityMissionService";
 import {
+  CAPABILITY_STATUS_LABELS,
   CapabilityGap,
   CapabilityImportance,
   CapabilityStatus,
@@ -69,15 +72,50 @@ const STATUS_GROUPS: {
   },
 ];
 
+/**
+ * Statuses for which VELYQO already has an established "build evidence"
+ * action: Home's Tier 0 NextMoveCard already does this for the top
+ * priority_gap capability, and capability-evidence.tsx's own "Build more
+ * evidence" CTA already does this for a developing one. Tapping a row of
+ * either status here reuses that exact existing missionFromCapabilityGap
+ * -> /ai-coach flow, never a new one.
+ *
+ * strength/unknown deliberately do NOT go here: capability-evidence.tsx
+ * itself never offers a mission CTA for either (a strength capability has
+ * nothing further for a mission to build toward; an unknown one has no
+ * existing "start a mission" precedent anywhere in the app). Both already
+ * have a meaningful existing destination — Achievement Record, the exact
+ * screen Story's own capability rows already link every capability to
+ * regardless of status — so tapping those routes there instead, never
+ * inventing a new mission flow for them.
+ */
+const MISSION_ELIGIBLE_STATUSES = new Set<CapabilityStatus>([
+  "priority_gap",
+  "developing",
+]);
+
 function CapabilityRow({
   capability,
   color,
+  onPress,
 }: {
   capability: CapabilityGap;
   color: string;
+  onPress: (capability: CapabilityGap) => void;
 }) {
+  const actionHint = MISSION_ELIGIBLE_STATUSES.has(capability.status)
+    ? "Build evidence."
+    : "View evidence.";
+
   return (
-    <View style={styles.capabilityRow}>
+    <TouchableOpacity
+      style={styles.capabilityRow}
+      onPress={() => onPress(capability)}
+      accessibilityRole="button"
+      accessibilityLabel={`${capability.capability_name}, ${
+        CAPABILITY_STATUS_LABELS[capability.status]
+      }. ${actionHint}`}
+    >
       <View style={[styles.statusDot, { backgroundColor: color }]} />
 
       <View style={styles.capabilityTextBlock}>
@@ -93,12 +131,64 @@ function CapabilityRow({
           {IMPORTANCE_LABELS[capability.importance]}
         </Text>
       </View>
-    </View>
+
+      <Text style={styles.chevron}>›</Text>
+    </TouchableOpacity>
   );
 }
 
 export default function CapabilityGapsScreen() {
   const { phase, capabilities, errorMessage, retry } = useCapabilityGaps();
+
+  /**
+   * Reuses the existing capability mission pipeline exactly, the same one
+   * dashboard.tsx's capability_gap NextMove and capability-evidence.tsx's
+   * "Build more evidence" CTA already use: missionFromCapabilityGap ->
+   * /ai-coach -> (existing, unmodified) /mission-complete ->
+   * recordMissionCompletionEvidence -> recalculateCapabilityStatus. No
+   * separate mission engine, no AI call, no new fetch — this screen
+   * already holds the full CapabilityGap row in state (unlike
+   * capability-evidence.tsx, which only has a route-param id and must
+   * re-fetch), so missionFromCapabilityGap runs synchronously here.
+   *
+   * For a capability that isn't mission-eligible (strength/unknown — see
+   * MISSION_ELIGIBLE_STATUSES), routes to Achievement Record instead —
+   * the exact same /capability-evidence destination Story's own capability
+   * rows already link every capability to, never a new screen.
+   */
+  const handleCapabilityPress = useCallback((capability: CapabilityGap) => {
+    if (MISSION_ELIGIBLE_STATUSES.has(capability.status)) {
+      const mission = missionFromCapabilityGap(capability);
+
+      router.push({
+        pathname: "/ai-coach",
+        params: {
+          mission: mission.title,
+          missionDescription: mission.description,
+          capabilityGapId: capability.id,
+          capabilityName: capability.capability_name,
+          // Consumed once by ai-coach.tsx's own hardware-back handler —
+          // mirrors timeline.tsx's existing `view` param convention (set
+          // here, read and cleared there via router.setParams). Tells Coach
+          // that THIS session originated from Career Gap specifically, so
+          // Back should return here instead of falling through to the
+          // Tabs navigator's default "initialRoute" (Home) behaviour. Never
+          // set by any other existing entry point (Home, Achievement
+          // Record), so their own Back behaviour is entirely unaffected.
+          returnTo: "career-gaps",
+        },
+      });
+      return;
+    }
+
+    router.push({
+      pathname: "/capability-evidence",
+      params: {
+        capabilityGapId: capability.id,
+        capabilityName: capability.capability_name,
+      },
+    });
+  }, []);
 
   // This screen is reached by push from Journey's Roadmap view
   // (components/journey/RoadmapView.tsx), but it lives in the same Tabs
@@ -215,7 +305,11 @@ export default function CapabilityGapsScreen() {
               <Card>
                 {items.map((capability, index) => (
                   <View key={capability.id}>
-                    <CapabilityRow capability={capability} color={group.color} />
+                    <CapabilityRow
+                      capability={capability}
+                      color={group.color}
+                      onPress={handleCapabilityPress}
+                    />
 
                     {index < items.length - 1 ? (
                       <View style={styles.divider} />
@@ -302,6 +396,7 @@ const styles = StyleSheet.create({
   capabilityRow: {
     flexDirection: "row",
     paddingVertical: 12,
+    minHeight: 44,
   },
 
   statusDot: {
@@ -333,6 +428,13 @@ const styles = StyleSheet.create({
     color: Colors.subtext,
     fontSize: 12,
     fontWeight: "600",
+    marginTop: 6,
+  },
+
+  chevron: {
+    color: Colors.subtext,
+    fontSize: 18,
+    marginLeft: Spacing.xs,
     marginTop: 6,
   },
 

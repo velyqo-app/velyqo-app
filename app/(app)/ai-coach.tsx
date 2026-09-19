@@ -1,6 +1,7 @@
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  BackHandler,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -57,6 +58,7 @@ export default function AICoachScreen() {
     missionDescription: missionDescriptionParam,
     capabilityGapId,
     capabilityName,
+    returnTo,
   } = useLocalSearchParams<{
     mission?: string;
     missionDescription?: string;
@@ -66,6 +68,11 @@ export default function AICoachScreen() {
     // capability_gaps row; this step does not act on it otherwise.
     capabilityGapId?: string;
     capabilityName?: string;
+    // Present only when career-gaps.tsx was this session's entry point —
+    // read by the hardware-back handler below, cleared once consumed.
+    // Never set by any other existing entry point (Home, Achievement
+    // Record), so their own Back behaviour is untouched.
+    returnTo?: string;
   }>();
 
   // Refetched once per screen focus rather than per message — sendMessage
@@ -131,6 +138,42 @@ export default function AICoachScreen() {
         active = false;
       };
     }, []),
+  );
+
+  // Phase 17A follow-up — Coach lives in the same flat Tabs navigator as
+  // every other screen (_layout.tsx), whose backBehavior is "initialRoute"
+  // (Android hardware Back from any tab goes straight to Home) — correct
+  // default behaviour for Coach reached via its own tab bar button or
+  // Home's NextMoveCard/Achievement Record's "Build more evidence" CTA, but
+  // wrong specifically when this session was opened from Career Gap, where
+  // Back should return there instead. Mirrors career-gaps.tsx's/
+  // capability-evidence.tsx's own identical BackHandler pattern, but only
+  // ever registers the listener when `returnTo` says this session actually
+  // came from Career Gap — every other entry point adds no listener at
+  // all, leaving the default Home behaviour completely untouched.
+  //
+  // Clears `returnTo` via router.setParams once consumed, the same
+  // consume-and-clear convention timeline.tsx's own `view` param already
+  // establishes — otherwise a later, unrelated tab-bar tap into Coach
+  // (which carries no params of its own) would inherit this stale value
+  // and incorrectly redirect Back to Career Gap again.
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== "android" || returnTo !== "career-gaps") {
+        return;
+      }
+
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        () => {
+          router.setParams({ returnTo: undefined });
+          router.push("/career-gaps");
+          return true;
+        },
+      );
+
+      return () => subscription.remove();
+    }, [returnTo]),
   );
 
   // Same read-only snapshot CurrentFocusCard/suggested-questions already use
@@ -271,7 +314,29 @@ I'm your Velyqo Career Coach. How can I help today?`;
     // mission source; falls back to the route's mission title if context
     // failed to load, and to the screen's own generic fallback if neither
     // is available.
+    //
+    // Phase 17A follow-up — this session's own mission/capability/returnTo
+    // params are cleared here, on Coach's own route, BEFORE navigating away
+    // (same router.setParams(undefined) convention timeline.tsx's `view`
+    // param already establishes). Without this, they would keep sitting on
+    // Coach's never-unmounted route entry (this app's flat Tabs navigator
+    // reuses every screen's mounted instance — see mission-complete.tsx's
+    // own header comment) and silently resurface as a stale "active
+    // mission"/"Complete Mission" state the next time Coach is reached
+    // WITHOUT fresh params (e.g. tapping the Coach tab bar icon directly) —
+    // exactly the "left in a state that implies another mission is already
+    // active" problem this follow-up fixes. A capability tapped again from
+    // Career Gap for a genuinely new mission always pushes its own fresh
+    // params regardless, so this clearing never interferes with that path.
     if (capabilityGapId) {
+      router.setParams({
+        mission: undefined,
+        missionDescription: undefined,
+        capabilityGapId: undefined,
+        capabilityName: undefined,
+        returnTo: undefined,
+      });
+
       router.replace({
         pathname: "/mission-complete",
         params: {
@@ -283,6 +348,8 @@ I'm your Velyqo Career Coach. How can I help today?`;
       });
       return;
     }
+
+    router.setParams({ mission: undefined, missionDescription: undefined });
 
     router.replace({
       pathname: "/mission-complete",
