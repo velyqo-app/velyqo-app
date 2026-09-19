@@ -9,6 +9,13 @@ import { isCapabilityAssessmentInProgress } from "../services/capabilityAssessme
 import { getCareerStateWithSummary } from "../services/careerStateService";
 import { getMomentum } from "../services/momentumService";
 import { selectNextMove } from "../services/nextMoveEngine";
+import { getAllCapabilityGapsForUser } from "../services/capabilityGapService";
+import { getAllCapabilityEvidenceForUser } from "../services/capabilityEvidenceService";
+import {
+  assembleCapabilityDevelopmentTimeline,
+  deriveRecentCapabilityMilestones,
+  CapabilityMilestoneEvent,
+} from "../services/capabilityDevelopmentTimelineService";
 
 import { getRecommendation } from "../services/recommendationService";
 
@@ -74,6 +81,17 @@ export function useDashboard() {
   const [estimatedJourney, setEstimatedJourney] =
     useState<RoadmapJourneyEstimate | null>(null);
 
+  // Phase 17B — the single most recent capability-development milestone
+  // (Phase 16, unmodified) for the CURRENT target role, or null when none
+  // exists yet. JourneySummaryCard uses this to replace its own static
+  // estimated-journey caption with a dated fact when one is available —
+  // enrichment only, exactly like Coach's own use of the same service:
+  // null on no milestone, no target role, or any read failure, and
+  // JourneySummaryCard already falls back to its existing caption in that
+  // case, so this never blocks or degrades the rest of Home.
+  const [recentCapabilityMilestone, setRecentCapabilityMilestone] =
+    useState<CapabilityMilestoneEvent | null>(null);
+
   const [missionLoading, setMissionLoading] = useState(true);
 
   // Phase 12 — true only while a background capability assessment is
@@ -108,6 +126,7 @@ export function useDashboard() {
         setNextMove(PLACEHOLDER_NEXT_MOVE);
         setEstimatedJourney(null);
         setAssessmentInProgress(false);
+        setRecentCapabilityMilestone(null);
         setMissionLoading(false);
         hasLoadedMissionOnce.current = true;
         return;
@@ -121,6 +140,7 @@ export function useDashboard() {
         setNextMove(PLACEHOLDER_NEXT_MOVE);
         setEstimatedJourney(null);
         setAssessmentInProgress(false);
+        setRecentCapabilityMilestone(null);
         setMissionLoading(false);
         hasLoadedMissionOnce.current = true;
         return;
@@ -135,16 +155,59 @@ export function useDashboard() {
       }
 
       const loadNextMove = async () => {
-        const [roadmap, careerStateResult] = await Promise.all([
-          findCachedRoadmap(userData),
-          getCareerStateWithSummary(userData.userId as string),
-        ]);
+        // Phase 17B — skip the capability_gaps/capability_evidence reads
+        // entirely when there's no target role yet (mirrors
+        // useCapabilityGaps' own early "no_target_role" short-circuit) —
+        // assembleCapabilityDevelopmentTimeline would return an empty
+        // timeline anyway, so there's nothing to gain from the round trip.
+        const needsCapabilityRead = Boolean(targetRole);
+
+        const [roadmap, careerStateResult, gapsResult, evidenceResult] =
+          await Promise.all([
+            findCachedRoadmap(userData),
+            getCareerStateWithSummary(userData.userId as string),
+            needsCapabilityRead
+              ? getAllCapabilityGapsForUser(userData.userId as string)
+              : Promise.resolve({ data: [], error: null }),
+            needsCapabilityRead
+              ? getAllCapabilityEvidenceForUser(userData.userId as string)
+              : Promise.resolve({ data: [], error: null }),
+          ]);
 
         if (!active) {
           return;
         }
 
         hasLoadedMissionOnce.current = true;
+
+        // Phase 17B — independent of the CareerState/NextMove branch below:
+        // reuses capabilityDevelopmentTimelineService's own Phase 16
+        // functions UNMODIFIED (the identical computation Coach's
+        // loadCapabilityMilestones already performs), scoped to the CURRENT
+        // target role only. Enrichment only, exactly like Coach's own use
+        // of this service: any read failure, empty result, or no target
+        // role at all simply yields null, and JourneySummaryCard already
+        // falls back to its existing estimated-journey caption in that
+        // case — this never blocks or affects the NextMove decision below.
+        if (
+          needsCapabilityRead &&
+          gapsResult.error === null &&
+          gapsResult.data &&
+          evidenceResult.error === null &&
+          evidenceResult.data
+        ) {
+          const timeline = assembleCapabilityDevelopmentTimeline(
+            targetRole,
+            gapsResult.data,
+            evidenceResult.data,
+          );
+
+          const recent = deriveRecentCapabilityMilestones(timeline);
+
+          setRecentCapabilityMilestone(recent?.recentMilestones[0] ?? null);
+        } else {
+          setRecentCapabilityMilestone(null);
+        }
 
         if (careerStateResult.error !== null) {
           console.warn(
@@ -226,11 +289,19 @@ export function useDashboard() {
         nextMove,
         estimatedJourney,
         assessmentInProgress,
+        recentCapabilityMilestone,
 
         readiness: progress.career_readiness,
       },
     };
-  }, [userData, progress, nextMove, estimatedJourney, assessmentInProgress]);
+  }, [
+    userData,
+    progress,
+    nextMove,
+    estimatedJourney,
+    assessmentInProgress,
+    recentCapabilityMilestone,
+  ]);
 
   return {
     loading: profileLoading || progressLoading || missionLoading,

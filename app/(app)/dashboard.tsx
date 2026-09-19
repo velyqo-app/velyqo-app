@@ -194,6 +194,7 @@ export default function DashboardScreen() {
         targetRole={userData.targetRole}
         progress={careerBrief.readiness}
         estimatedJourney={careerBrief.estimatedJourney}
+        recentCapabilityMilestone={careerBrief.recentCapabilityMilestone}
         onPress={goToJourney}
       />
 
