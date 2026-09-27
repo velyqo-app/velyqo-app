@@ -29,7 +29,7 @@ export default function MomentumCard({
         <View style={styles.stat}>
           <Text style={styles.value}>{streak}</Text>
 
-          <Text style={styles.label}>Day Streak</Text>
+          <Text style={styles.label}>Momentum Points</Text>
         </View>
 
         <View style={styles.stat}>

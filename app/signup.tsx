@@ -38,7 +38,10 @@ export default function SignupScreen() {
     const { error } = await signUp(email.trim(), password);
 
     if (error) {
-      Alert.alert("Sign Up Failed", error.message);
+      Alert.alert(
+        "Sign Up Failed",
+        "We couldn't create your account. Please check your details and try again.",
+      );
       return;
     }
 
@@ -84,6 +87,21 @@ export default function SignupScreen() {
       <TouchableOpacity style={styles.button} onPress={handleSignup}>
         <Text style={styles.buttonText}>Create Account</Text>
       </TouchableOpacity>
+
+      <Text style={styles.terms}>
+        By creating an account, you agree to our{" "}
+        <Text style={styles.termsLink} onPress={() => router.push("/terms")}>
+          Terms of Service
+        </Text>{" "}
+        and{" "}
+        <Text
+          style={styles.termsLink}
+          onPress={() => router.push("/privacy")}
+        >
+          Privacy Policy
+        </Text>
+        .
+      </Text>
 
       <TouchableOpacity onPress={() => router.push("/login")}>
         <Text style={styles.login}>Already have an account? Sign In</Text>
@@ -143,5 +161,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 24,
     fontSize: 15,
+  },
+
+  terms: {
+    color: "#94A3B8",
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+
+  termsLink: {
+    color: "#A78BFA",
+    fontWeight: "600",
   },
 });

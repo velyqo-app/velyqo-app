@@ -123,8 +123,10 @@ export default function SummaryScreen() {
     );
 
     if (error) {
-      console.log(error);
-      Alert.alert("Save Failed", error.message);
+      Alert.alert(
+        "Save Failed",
+        "We couldn't save your information. Please try again.",
+      );
       return;
     }
 

@@ -4,6 +4,7 @@ import { useProfile } from "../../hooks/useProfile";
 
 import {
   Alert,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,9 +15,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
-import { Colors } from "../../constants/theme";
+import { Colors, Spacing } from "../../constants/theme";
 import { UserContext, UserData } from "../../context/UserContext";
-import { signOut } from "../../services/authService";
+import { deleteAccount, signOut } from "../../services/authService";
 import { clearCoachHistory } from "../../services/coachHistoryService";
 
 import OccupationAutocomplete from "../../components/OccupationAutocomplete";
@@ -48,6 +49,11 @@ import {
   computeAddedSkills,
   updateProfile,
 } from "../../services/profileService";
+
+// Phase 18 — a single, easy-to-replace constant rather than anything
+// embedded in JSX below, so swapping in a real support address later is a
+// one-line change.
+const SUPPORT_EMAIL = "support@velyqoapp.com";
 
 const EXPERIENCE_OPTIONS: ExperienceLevel[] = [
   "none",
@@ -87,6 +93,7 @@ export default function ProfileScreen() {
   const { setUserData, clearUserData } = useContext(UserContext);
 
   const [signingOut, setSigningOut] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   // Read-only, local-only lookup — never triggers the salary-conflict check
   // itself, just reflects a decision already made (if any) on Journey.
@@ -185,7 +192,10 @@ export default function ProfileScreen() {
     setSaving(false);
 
     if (error) {
-      Alert.alert("Update Failed", error.message);
+      Alert.alert(
+        "Update Failed",
+        "We couldn't save your changes. Please try again.",
+      );
       return false;
     }
 
@@ -422,7 +432,10 @@ export default function ProfileScreen() {
 
     if (error) {
       setSigningOut(false);
-      Alert.alert("Sign Out Failed", error.message);
+      Alert.alert(
+        "Sign Out Failed",
+        "We couldn't sign you out. Please try again.",
+      );
       return;
     }
 
@@ -441,6 +454,60 @@ export default function ProfileScreen() {
     }
 
     router.replace("/");
+  };
+
+  /**
+   * Phase 18 — permanently deletes this account. The actual privileged
+   * deletion happens server-side (services/authService.ts's deleteAccount
+   * -> the delete-account Edge Function), authenticated as and scoped
+   * exclusively to whoever's session token this device currently holds —
+   * this screen never supplies or trusts a user id of its own.
+   *
+   * Requires an explicit confirmation step (never deletes on the first
+   * tap), mirrors handleReconsiderPriority's existing Alert-based
+   * confirm/cancel pattern already used elsewhere in this file, and reuses
+   * handleSignOut's own local-cleanup steps afterward so the device ends
+   * up in the exact same clean, signed-out state either way.
+   */
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete your account?",
+      "This permanently deletes your VELYQO account and all of your data, including your career profile, missions, and Coach history. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Account",
+          style: "destructive",
+          onPress: async () => {
+            setDeletingAccount(true);
+
+            const { error } = await deleteAccount();
+
+            if (error) {
+              setDeletingAccount(false);
+              Alert.alert(
+                "We Couldn't Delete Your Account",
+                "Please check your connection and try again. If this keeps happening, contact support.",
+              );
+              return;
+            }
+
+            if (userData.userId) {
+              clearCoachHistory(userData.userId);
+            }
+
+            clearUserData();
+
+            // The account no longer exists server-side by this point, so a
+            // failure here has nothing left to signal — this only clears
+            // the now-defunct session tokens from local storage.
+            await signOut().catch(() => {});
+
+            router.replace("/");
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -493,7 +560,22 @@ export default function ProfileScreen() {
         <ProfileLinkRow
           icon="❓"
           title="Help & Support"
-          subtitle="Coming soon"
+          subtitle={SUPPORT_EMAIL}
+          onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+        />
+
+        <ProfileLinkRow
+          icon="📄"
+          title="Terms of Service"
+          subtitle="What you agree to by using VELYQO"
+          onPress={() => router.push("/terms")}
+        />
+
+        <ProfileLinkRow
+          icon="🔒"
+          title="Privacy Policy"
+          subtitle="What we collect and how it's used"
+          onPress={() => router.push("/privacy")}
         />
 
         <Text style={styles.sectionLabel}>ACCOUNT</Text>
@@ -505,6 +587,24 @@ export default function ProfileScreen() {
             disabled={signingOut}
             onPress={handleSignOut}
           />
+        </Card>
+
+        <Card>
+          <TouchableOpacity
+            style={styles.deleteAccountButton}
+            disabled={deletingAccount}
+            onPress={handleDeleteAccount}
+            accessibilityRole="button"
+          >
+            <Text style={styles.deleteAccountText}>
+              {deletingAccount ? "Deleting Account..." : "Delete Account"}
+            </Text>
+          </TouchableOpacity>
+
+          <Text style={styles.deleteAccountHint}>
+            Permanently deletes your account and all of your data. This
+            cannot be undone.
+          </Text>
         </Card>
       </ScrollView>
 
@@ -688,6 +788,25 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginBottom: 10,
     marginTop: 4,
+  },
+
+  deleteAccountButton: {
+    paddingVertical: Spacing.sm,
+    alignItems: "center",
+  },
+
+  deleteAccountText: {
+    color: Colors.danger,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+
+  deleteAccountHint: {
+    color: Colors.subtext,
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: Spacing.xs,
+    lineHeight: 17,
   },
 
   input: {

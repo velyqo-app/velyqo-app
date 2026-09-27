@@ -28,7 +28,10 @@ export default function LoginScreen() {
     const { error } = await signIn(email.trim(), password);
 
     if (error) {
-      Alert.alert("Login Failed", error.message);
+      Alert.alert(
+        "Login Failed",
+        "We couldn't sign you in. Please check your details and try again.",
+      );
       return;
     }
 
@@ -60,6 +63,10 @@ export default function LoginScreen() {
         onChangeText={setPassword}
       />
       <Button title="Sign In" onPress={handleLogin} />
+
+      <TouchableOpacity onPress={() => router.push("/forgot-password")}>
+        <Text style={styles.forgotPassword}>Forgot password?</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.push("/signup")}>
         <Text style={styles.signup}>
@@ -121,5 +128,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 24,
     fontSize: 15,
+  },
+
+  forgotPassword: {
+    color: "#A78BFA",
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 14,
   },
 });
