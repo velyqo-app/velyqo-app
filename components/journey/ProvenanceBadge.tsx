@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import { Colors, Radius } from "../../constants/theme";
+import { Radius, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 
 /**
  * Phase 11 Step 4 — the one small reusable label for "who supplied this":
@@ -37,6 +38,8 @@ const LABELS: Record<ProvenanceBadgeVariant, string> = {
 };
 
 export default function ProvenanceBadge({ variant }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View
       style={[
@@ -58,7 +61,7 @@ export default function ProvenanceBadge({ variant }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   badge: {
     alignSelf: "flex-start",
     paddingVertical: 3,

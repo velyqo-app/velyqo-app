@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 
 interface Props {
   title: string;
@@ -13,6 +14,8 @@ interface Props {
  * Coach's own, content-specific header, not a convention these screens
  * need to borrow. */
 export default function ScreenHeader({ title }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{title}</Text>
@@ -20,7 +23,7 @@ export default function ScreenHeader({ title }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,

@@ -9,7 +9,8 @@ import {
 } from "../../types/careerContext";
 
 import OnboardingProgress from "../../components/onboarding/OnboardingProgress";
-import { Colors, Radius, Spacing } from "../../constants/theme";
+import { Radius, Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingSteps";
 
 const OPTIONS: TargetTimeframe[] = [
@@ -21,6 +22,8 @@ const OPTIONS: TargetTimeframe[] = [
 ];
 
 export default function TargetTimeframeScreen() {
+  const styles = useThemedStyles(createStyles);
+
   const { userData, setUserData } = useContext(UserContext);
 
   const select = (timeframe: TargetTimeframe) => {
@@ -59,7 +62,7 @@ export default function TargetTimeframeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

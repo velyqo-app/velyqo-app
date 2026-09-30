@@ -6,7 +6,8 @@ import {
   View,
 } from "react-native";
 
-import { Colors } from "../constants/theme";
+import type { ThemeColors } from "../constants/theme";
+import { useThemeColors, useThemedStyles } from "../context/ThemeContext";
 import { SALARY_PRIORITY_LABELS, SalaryPriority } from "../types/careerContext";
 import { DestinationComparison } from "../hooks/useRoadmap";
 import Card from "./ui/Card";
@@ -40,6 +41,9 @@ export default function DestinationDecision({
   onChoose,
   submitting,
 }: Props) {
+  const Colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
+
   const { requestedTitle, requestedSalary, band, candidates, explanation } =
     comparison;
 
@@ -119,7 +123,7 @@ export default function DestinationDecision({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   title: {
     color: Colors.text,
     fontSize: 20,

@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import { Colors, Radius, Spacing } from "../../constants/theme";
+import { Radius, Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 
 interface Props {
   step: number;
@@ -14,6 +15,8 @@ interface Props {
  * changes question order or skip logic, just reflects the step the caller
  * already computed. */
 export default function OnboardingProgress({ step, total }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   const progress = Math.min(1, Math.max(0, step / total));
 
   return (
@@ -29,7 +32,7 @@ export default function OnboardingProgress({ step, total }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     marginBottom: Spacing.lg,
   },

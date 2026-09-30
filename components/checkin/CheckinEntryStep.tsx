@@ -2,7 +2,8 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import Button from "../ui/Button";
 import Card from "../ui/Card";
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 
 interface Props {
   onStart: () => void;
@@ -24,6 +25,8 @@ export default function CheckinEntryStep({
   disabled,
   error,
 }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       <Card>
@@ -61,7 +64,7 @@ export default function CheckinEntryStep({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",

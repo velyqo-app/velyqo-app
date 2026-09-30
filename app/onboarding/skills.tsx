@@ -21,10 +21,13 @@ import {
 
 import OnboardingProgress from "../../components/onboarding/OnboardingProgress";
 import Button from "../../components/ui/Button";
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingSteps";
 
 export default function SkillsScreen() {
+  const styles = useThemedStyles(createStyles);
+
   const { userData, setUserData } = useContext(UserContext);
 
   const [category, setCategory] = useState<string | null>(null);
@@ -113,7 +116,7 @@ export default function SkillsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

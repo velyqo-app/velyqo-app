@@ -8,7 +8,8 @@ import {
     View,
 } from "react-native";
 
-import { Colors, Radius } from "../constants/theme";
+import { Radius, type ThemeColors } from "../constants/theme";
+import { useThemeColors, useThemedStyles } from "../context/ThemeContext";
 import { Occupation } from "../types/occupation";
 
 interface OccupationAutocompleteProps {
@@ -30,6 +31,9 @@ export default function OccupationAutocomplete({
   onChangeText,
   onSelect,
 }: OccupationAutocompleteProps) {
+  const Colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
@@ -72,7 +76,7 @@ export default function OccupationAutocomplete({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     width: "100%",
     marginBottom: 20,

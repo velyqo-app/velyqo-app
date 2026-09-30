@@ -9,7 +9,8 @@ import LoadingScreen from "../../components/ui/LoadingScreen";
 
 import { createJournalEntry } from "../../services/journalService";
 
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 
 import { getCurrentUser } from "../../services/authService";
 import { getCapabilityGapById } from "../../services/capabilityGapService";
@@ -188,6 +189,8 @@ async function saveMissionProgress(
 }
 
 export default function MissionCompleteScreen() {
+  const styles = useThemedStyles(createStyles);
+
   const { missionTitle, missionDescription, capabilityGapId, capabilityName } =
     useLocalSearchParams<{
       missionTitle?: string;
@@ -383,7 +386,7 @@ export default function MissionCompleteScreen() {
 
           <Text style={styles.metric}>Momentum increased</Text>
 
-          <Text style={styles.metric}>Career readiness updated</Text>
+          <Text style={styles.metric}>Added to your Career Story</Text>
 
           <Text style={styles.metric}>
             One step closer to your target career
@@ -431,7 +434,7 @@ export default function MissionCompleteScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

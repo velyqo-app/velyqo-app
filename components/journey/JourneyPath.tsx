@@ -15,7 +15,8 @@ import Animated, {
   FadeInUp,
 } from "react-native-reanimated";
 
-import { Colors } from "../../constants/theme";
+import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import {
   JourneyTimeline,
   formatTimelineDate,
@@ -63,6 +64,8 @@ export default function JourneyPath({
   scrollY,
   onActiveIndexChange,
 }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   const { milestones, hasDates } = timeline;
   const nodeCount = milestones.length + 2;
 
@@ -330,7 +333,7 @@ const DOT_TARGET_SIZE = 20;
 const LINE_WIDTH = 2;
 const COLUMN_WIDTH = 32;
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     position: "relative",
   },

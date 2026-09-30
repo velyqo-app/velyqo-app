@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import { Colors } from "../../constants/theme";
+import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import Card from "../ui/Card";
 
 interface Props {
@@ -19,6 +20,8 @@ export default function ProfileLinkRow({
   subtitle,
   onPress,
 }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Card onPress={onPress}>
       <View style={styles.row}>
@@ -36,7 +39,7 @@ export default function ProfileLinkRow({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",

@@ -1,7 +1,8 @@
 import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
-import { Colors, Radius, Shadows, Spacing } from "../../constants/theme";
+import { Radius, Spacing, type ThemeColors, type ThemeShadows } from "../../constants/theme";
+import { useThemeColors, useThemedStyles } from "../../context/ThemeContext";
 import { Roadmap } from "../../types/roadmap";
 
 interface Props {
@@ -22,6 +23,9 @@ function formatMoney(currency: string, amount: number) {
  * elevated surface are reserved for this and the current milestone only.
  */
 export default function TargetArrivalCard({ roadmap, arrivalLabel }: Props) {
+  const Colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
+
   const { target } = roadmap;
 
   return (
@@ -67,7 +71,7 @@ export default function TargetArrivalCard({ roadmap, arrivalLabel }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors, Shadows: ThemeShadows) => StyleSheet.create({
   card: {
     backgroundColor: Colors.cardElevated,
     borderRadius: Radius.lg,

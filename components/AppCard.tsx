@@ -1,11 +1,14 @@
 import { StyleSheet, View } from "react-native";
-import { Colors, Radius, Spacing } from "../constants/theme";
+import { Radius, Spacing, type ThemeColors } from "../constants/theme";
+import { useThemedStyles } from "../context/ThemeContext";
 
 export default function AppCard({ children }: { children: React.ReactNode }) {
+  const styles = useThemedStyles(createStyles);
+
   return <View style={styles.card}>{children}</View>;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   card: {
     backgroundColor: Colors.card,
     padding: Spacing.lg,

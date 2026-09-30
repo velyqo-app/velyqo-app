@@ -11,7 +11,8 @@ import {
   View,
 } from "react-native";
 
-import { Colors, Radius, Spacing } from "../../constants/theme";
+import { Radius, Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemeColors, useThemedStyles } from "../../context/ThemeContext";
 
 interface Props {
   visible: boolean;
@@ -35,6 +36,9 @@ export default function EditModal({
   saving,
   children,
 }: Props) {
+  const Colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Modal
       visible={visible}
@@ -83,14 +87,14 @@ export default function EditModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   avoiding: {
     flex: 1,
   },
 
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: Colors.overlay,
   },
 
   sheet: {
@@ -138,7 +142,7 @@ const styles = StyleSheet.create({
   },
 
   saveText: {
-    color: Colors.text,
+    color: Colors.onPrimary,
     fontSize: 16,
     fontWeight: "700",
   },

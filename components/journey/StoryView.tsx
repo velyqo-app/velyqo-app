@@ -12,7 +12,8 @@ import Button from "../ui/Button";
 import Card from "../ui/Card";
 import LoadingScreen from "../ui/LoadingScreen";
 import StoryEventCard from "./StoryEventCard";
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemeColors, useThemedStyles } from "../../context/ThemeContext";
 import { useProfile } from "../../hooks/useProfile";
 import { getCapabilityEvidenceTrails } from "../../services/capabilityEvidenceTrailService";
 import { getCareerJourney } from "../../services/careerJourneyService";
@@ -33,11 +34,12 @@ import { CareerJourney, JourneyEvent } from "../../types/careerJourney";
  * partial states, no shared state with the roadmap side at all.
  */
 
-const STATUS_COLORS: Record<CapabilityStatus, string> = {
-  priority_gap: Colors.warning,
-  developing: Colors.primary,
-  unknown: Colors.subtext,
-  strength: Colors.success,
+/** Theme token names, resolved against the active theme at render. */
+const STATUS_COLORS: Record<CapabilityStatus, keyof ThemeColors> = {
+  priority_gap: "warning",
+  developing: "primary",
+  unknown: "subtext",
+  strength: "success",
 };
 
 // ---------------------------------------------------------------------
@@ -170,6 +172,9 @@ function CapabilityRow({
   showDivider: boolean;
   onPress: (capabilityGapId: string, capabilityName: string) => void;
 }) {
+  const Colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
+
   const statusLabel = STATUS_LABELS[trail.currentStatus];
 
   return (
@@ -185,7 +190,7 @@ function CapabilityRow({
         <View
           style={[
             styles.statusDot,
-            { backgroundColor: STATUS_COLORS[trail.currentStatus] },
+            { backgroundColor: Colors[STATUS_COLORS[trail.currentStatus]] },
           ]}
         />
 
@@ -215,6 +220,8 @@ function CapabilitiesSection({
   trails: CapabilityEvidenceTrail[];
   onPress: (capabilityGapId: string, capabilityName: string) => void;
 }) {
+  const styles = useThemedStyles(createStyles);
+
   if (trails.length === 0) {
     return null;
   }
@@ -258,6 +265,8 @@ function CapabilitiesSection({
 }
 
 export default function StoryView() {
+  const styles = useThemedStyles(createStyles);
+
   const { userData } = useProfile();
   const userId = userData.userId;
 
@@ -406,7 +415,7 @@ export default function StoryView() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   content: {
     padding: Spacing.lg,
     paddingBottom: Spacing.xl + Spacing.md,

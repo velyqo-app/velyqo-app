@@ -11,8 +11,10 @@ import DestinationDecision from "../DestinationDecision";
 import JourneyPath from "./JourneyPath";
 import StickyDateIndicator from "./StickyDateIndicator";
 import Card from "../ui/Card";
+import { DisclosureToggle, ExpandableText, useDisclosure } from "../ui/Disclosure";
 import LoadingScreen from "../ui/LoadingScreen";
-import { Colors, Radius, Spacing } from "../../constants/theme";
+import { Radius, Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import { useRoadmap } from "../../hooks/useRoadmap";
 import { formatJourneyHeadline } from "../../services/journeyEstimateFormat";
 import {
@@ -65,6 +67,9 @@ function EstimateHeaderCard({
   roadmap: Roadmap;
   requestedTimeframe: string | null;
 }) {
+  const styles = useThemedStyles(createStyles);
+  const { expanded: showMethod, toggle: toggleMethod } = useDisclosure();
+
   const estimate = roadmap.estimatedJourney;
 
   if (!estimate) {
@@ -93,12 +98,23 @@ function EstimateHeaderCard({
         {partial ? ` (based on ${stepsCounted} of ${stepsTotal} steps)` : ""}
       </Text>
 
-      <Text style={styles.journeyFootnote}>
-        Assumes some steps can overlap with earlier ones — e.g. building a
-        portfolio or networking while still in your current role — rather
-        than every step happening strictly one after another. This is
-        VELYQO&apos;s estimate, not a promise.
-      </Text>
+      {/* The honesty caveat stays one tap away, word for word — just no
+          longer the first thing read at the top of Journey. */}
+      <DisclosureToggle
+        expanded={showMethod}
+        onPress={toggleMethod}
+        showLabel="How is this estimated?"
+        style={styles.journeyMethodToggle}
+      />
+
+      {showMethod && (
+        <Text style={styles.journeyFootnote}>
+          Assumes some steps can overlap with earlier ones — e.g. building a
+          portfolio or networking while still in your current role — rather
+          than every step happening strictly one after another. This is
+          VELYQO&apos;s estimate, not a promise.
+        </Text>
+      )}
     </Card>
   );
 }
@@ -122,6 +138,8 @@ function JourneyView({
   scrollY: SharedValue<number>;
   onLabelChange: (label: string | null) => void;
 }) {
+  const styles = useThemedStyles(createStyles);
+
   const timeline: JourneyTimeline = buildJourneyTimeline(roadmap);
 
   const handleActiveIndexChange = useCallback(
@@ -161,7 +179,12 @@ function JourneyView({
         <Card>
           <Text style={styles.cardTitle}>Your transition</Text>
 
-          <Text style={styles.summary}>{roadmap.summary}</Text>
+          <ExpandableText
+            text={roadmap.summary}
+            numberOfLines={3}
+            style={styles.summary}
+            showLabel="Read more"
+          />
         </Card>
       ) : null}
 
@@ -248,6 +271,8 @@ function JourneyView({
 }
 
 export default function RoadmapView() {
+  const styles = useThemedStyles(createStyles);
+
   const {
     loading,
     profileError,
@@ -383,7 +408,7 @@ export default function RoadmapView() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   scrollWrapper: {
     flex: 1,
     position: "relative",
@@ -451,6 +476,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
     marginTop: 8,
+  },
+
+  /** Centres the "How is this estimated?" toggle to match this card's
+   * centred text. */
+  journeyMethodToggle: {
+    alignSelf: "center",
   },
 
   journeyFootnote: {

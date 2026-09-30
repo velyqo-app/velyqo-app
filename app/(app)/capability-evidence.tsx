@@ -16,7 +16,8 @@ import Card from "../../components/ui/Card";
 import ScreenHeader from "../../components/ui/ScreenHeader";
 import ProvenanceBadge from "../../components/journey/ProvenanceBadge";
 import { formatEventDate } from "../../components/journey/StoryEventCard";
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemeColors, useThemedStyles } from "../../context/ThemeContext";
 import { useProfile } from "../../hooks/useProfile";
 import {
   countEvidenceByProvenance,
@@ -52,6 +53,9 @@ import { CapabilityEvidenceTrail } from "../../types/capabilityEvidenceTrail";
  */
 
 export default function CapabilityEvidenceScreen() {
+  const Colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
+
   const { capabilityGapId, capabilityName } = useLocalSearchParams<{
     capabilityGapId?: string;
     capabilityName?: string;
@@ -391,7 +395,7 @@ export default function CapabilityEvidenceScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

@@ -2,7 +2,8 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import Card from "../ui/Card";
 import ProvenanceBadge from "./ProvenanceBadge";
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import { CheckinItem, JourneyEvent } from "../../types/careerJourney";
 
 /**
@@ -86,6 +87,8 @@ function CapabilityChip({
   capabilityName: string;
   onPress: (capabilityGapId: string, capabilityName: string) => void;
 }) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <TouchableOpacity
       style={styles.chip}
@@ -106,6 +109,8 @@ function MissionCard({
   event: Extract<JourneyEvent, { type: "mission_completed" }>;
   onCapabilityPress: Props["onCapabilityPress"];
 }) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Card>
       <View style={styles.headerRow}>
@@ -137,6 +142,8 @@ function CheckinCard({
   event: Extract<JourneyEvent, { type: "checkin_submitted" }>;
   onCapabilityPress: Props["onCapabilityPress"];
 }) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Card>
       <View style={styles.headerRow}>
@@ -185,6 +192,8 @@ function MinimalCard({
   title: string;
   description: string | null;
 }) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Card>
       <View style={styles.headerRowCompact}>
@@ -201,6 +210,8 @@ function MinimalCard({
 }
 
 export default function StoryEventCard({ event, onCapabilityPress }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   if (event.type === "mission_completed") {
     return <MissionCard event={event} onCapabilityPress={onCapabilityPress} />;
   }
@@ -218,7 +229,7 @@ export default function StoryEventCard({ event, onCapabilityPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",

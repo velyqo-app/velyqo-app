@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { Colors } from "../../constants/theme";
+import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 
 interface Props {
   label: string;
@@ -20,6 +21,8 @@ interface Props {
  * editable, per the large-tappable-area principle, rather than a small
  * separate "Edit" button. */
 export default function BlueprintField({ label, value, last, onPress }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   const content = (
     <>
       <View style={styles.textBlock}>
@@ -49,7 +52,7 @@ export default function BlueprintField({ label, value, last, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",

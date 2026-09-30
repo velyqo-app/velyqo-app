@@ -14,7 +14,8 @@ import Button from "../../components/ui/Button";
 import LoadingScreen from "../../components/ui/LoadingScreen";
 import ScreenHeader from "../../components/ui/ScreenHeader";
 
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import { SELECTABLE_CATEGORIES, useCareerCheckin } from "../../hooks/useCareerCheckin";
 import { CareerCheckinCategory } from "../../types/careerCheckin";
 
@@ -32,6 +33,8 @@ import { CareerCheckinCategory } from "../../types/careerCheckin";
  *   implicit behavior during its save.
  */
 export default function CareerCheckinScreen() {
+  const styles = useThemedStyles(createStyles);
+
   const navigation = useNavigation();
 
   const {
@@ -214,7 +217,7 @@ export default function CareerCheckinScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

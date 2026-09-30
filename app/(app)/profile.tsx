@@ -15,7 +15,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemeColors, useThemedStyles } from "../../context/ThemeContext";
 import { UserContext, UserData } from "../../context/UserContext";
 import { deleteAccount, signOut } from "../../services/authService";
 import { clearCoachHistory } from "../../services/coachHistoryService";
@@ -24,6 +25,7 @@ import OccupationAutocomplete from "../../components/OccupationAutocomplete";
 import CareerBlueprintCard from "../../components/profile/CareerBlueprintCard";
 import EditModal from "../../components/profile/EditModal";
 import ProfileLinkRow from "../../components/profile/ProfileLinkRow";
+import ThemeSelector from "../../components/profile/ThemeSelector";
 import SkillSelector from "../../components/SkillSelector";
 import ScreenHeader from "../../components/ui/ScreenHeader";
 
@@ -88,6 +90,9 @@ function isValidMoney(value: string): boolean {
 }
 
 export default function ProfileScreen() {
+  const Colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
+
   const { userData } = useProfile();
 
   const { setUserData, clearUserData } = useContext(UserContext);
@@ -578,6 +583,12 @@ export default function ProfileScreen() {
           onPress={() => router.push("/privacy")}
         />
 
+        <Text style={styles.sectionLabel}>APPEARANCE</Text>
+
+        <Card>
+          <ThemeSelector />
+        </Card>
+
         <Text style={styles.sectionLabel}>ACCOUNT</Text>
 
         <Card>
@@ -762,7 +773,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

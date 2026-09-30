@@ -20,7 +20,8 @@ import OnboardingProgress from "../../components/onboarding/OnboardingProgress";
 import BlueprintField from "../../components/profile/BlueprintField";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingSteps";
 
 function formatMoney(currency: string, amount: number) {
@@ -28,6 +29,8 @@ function formatMoney(currency: string, amount: number) {
 }
 
 export default function SummaryScreen() {
+  const styles = useThemedStyles(createStyles);
+
   const { userData } = useContext(UserContext);
 
   // Same authoritative lookup Dashboard/Timeline use (resolveEndpoint +
@@ -290,7 +293,7 @@ export default function SummaryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

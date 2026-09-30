@@ -7,7 +7,8 @@ import {
   View,
 } from "react-native";
 
-import { Colors, Radius } from "../constants/theme";
+import { Radius, type ThemeColors } from "../constants/theme";
+import { useThemeColors, useThemedStyles } from "../context/ThemeContext";
 
 type Props = {
   onSend: (message: string) => void;
@@ -18,6 +19,9 @@ type Props = {
 };
 
 export default function ChatInput({ onSend, disabled }: Props) {
+  const Colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
+
   const [message, setMessage] = useState("");
 
   const send = () => {
@@ -55,7 +59,7 @@ export default function ChatInput({ onSend, disabled }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -92,7 +96,7 @@ const styles = StyleSheet.create({
   },
 
   buttonText: {
-    color: Colors.text,
+    color: Colors.onPrimary,
     fontWeight: "700",
     fontSize: 15,
   },

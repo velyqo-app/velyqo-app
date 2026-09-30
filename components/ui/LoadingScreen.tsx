@@ -1,6 +1,7 @@
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemeColors, useThemedStyles } from "../../context/ThemeContext";
 
 interface Props {
   message?: string;
@@ -9,6 +10,9 @@ interface Props {
 export default function LoadingScreen({
   message = "Preparing your career dashboard...",
 }: Props) {
+  const Colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>VELYQO</Text>
@@ -24,7 +28,7 @@ export default function LoadingScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

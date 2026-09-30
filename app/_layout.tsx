@@ -1,12 +1,18 @@
 import * as Linking from "expo-linking";
 import { router, Stack } from "expo-router";
-import { DarkTheme, ThemeProvider } from "expo-router/react-navigation";
+import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router/react-navigation";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { Component, ReactNode, useEffect } from "react";
+import * as SystemUI from "expo-system-ui";
+import { Component, ReactNode, useEffect, useMemo } from "react";
 import { AppState, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { Colors, Spacing } from "../constants/theme";
+import { Spacing, type ThemeColors } from "../constants/theme";
+import {
+  ThemeProvider as AppThemeProvider,
+  useTheme,
+  useThemedStyles,
+} from "../context/ThemeContext";
 import { UserProvider } from "../context/UserContext";
 import { supabase } from "../lib/supabase";
 
@@ -22,10 +28,11 @@ interface ErrorBoundaryState {
  * Catches an otherwise-uncaught render/runtime error anywhere in the tree
  * below it, so a bug never crashes to a blank/red screen with no way back.
  * Deliberately self-contained (no imports from this app's own component
- * library) so a bug in a shared component can never also take down this
- * fallback UI. "Try again" just resets local state and re-renders the same
- * tree — enough to recover from a transient/data-dependent failure; a
- * persistent bug will show this screen again, which is expected.
+ * library — only the theme context, for its colours) so a bug in a shared
+ * component can never also take down this fallback UI. "Try again" just
+ * resets local state and re-renders the same tree — enough to recover from
+ * a transient/data-dependent failure; a persistent bug will show this
+ * screen again, which is expected.
  */
 class RootErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false };
@@ -44,29 +51,34 @@ class RootErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState
 
   render() {
     if (this.state.hasError) {
-      return (
-        <View style={errorBoundaryStyles.container}>
-          <Text style={errorBoundaryStyles.logo}>Velyqo</Text>
-
-          <Text style={errorBoundaryStyles.title}>Something went wrong.</Text>
-
-          <Text style={errorBoundaryStyles.body}>Please try again.</Text>
-
-          <TouchableOpacity
-            style={errorBoundaryStyles.button}
-            onPress={this.handleTryAgain}
-          >
-            <Text style={errorBoundaryStyles.buttonText}>Try again</Text>
-          </TouchableOpacity>
-        </View>
-      );
+      return <ErrorFallback onTryAgain={this.handleTryAgain} />;
     }
 
     return this.props.children;
   }
 }
 
-const errorBoundaryStyles = StyleSheet.create({
+/** The boundary's fallback UI — a function component so it can read the
+ * active theme (class components cannot use hooks). */
+function ErrorFallback({ onTryAgain }: { onTryAgain: () => void }) {
+  const errorBoundaryStyles = useThemedStyles(createErrorBoundaryStyles);
+
+  return (
+    <View style={errorBoundaryStyles.container}>
+      <Text style={errorBoundaryStyles.logo}>Velyqo</Text>
+
+      <Text style={errorBoundaryStyles.title}>Something went wrong.</Text>
+
+      <Text style={errorBoundaryStyles.body}>Please try again.</Text>
+
+      <TouchableOpacity style={errorBoundaryStyles.button} onPress={onTryAgain}>
+        <Text style={errorBoundaryStyles.buttonText}>Try again</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const createErrorBoundaryStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -105,11 +117,49 @@ const errorBoundaryStyles = StyleSheet.create({
   },
 
   buttonText: {
-    color: Colors.text,
+    color: Colors.onPrimary,
     fontSize: 16,
     fontWeight: "700",
   },
 });
+
+/**
+ * Everything that must follow the active theme outside individual screens:
+ * React Navigation's own colours (screen/transition backgrounds), the status
+ * bar icon colour, and the root view behind the app (visible during keyboard
+ * resize and transitions). Lives under AppThemeProvider so it can read it.
+ */
+function ThemedNavigation({ children }: { children: ReactNode }) {
+  const { scheme, colors } = useTheme();
+
+  const navigationTheme = useMemo(() => {
+    const base = scheme === "dark" ? DarkTheme : DefaultTheme;
+
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: colors.primary,
+        background: colors.background,
+        card: colors.card,
+        text: colors.text,
+        border: colors.border,
+      },
+    };
+  }, [scheme, colors]);
+
+  useEffect(() => {
+    SystemUI.setBackgroundColorAsync(colors.background).catch(() => {});
+  }, [colors.background]);
+
+  return (
+    <ThemeProvider value={navigationTheme}>
+      {children}
+
+      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+    </ThemeProvider>
+  );
+}
 
 // Keep the native splash up until the initial session check resolves, so the
 // Welcome screen never flashes for an already signed-in user. Called in global
@@ -161,23 +211,23 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <UserProvider>
-      <ThemeProvider value={DarkTheme}>
-        <RootErrorBoundary>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="login" />
-            <Stack.Screen name="signup" />
-            <Stack.Screen name="forgot-password" />
-            <Stack.Screen name="reset-password" />
-            <Stack.Screen name="terms" />
-            <Stack.Screen name="privacy" />
-            <Stack.Screen name="(app)" />
-          </Stack>
-        </RootErrorBoundary>
-
-        <StatusBar style="light" />
-      </ThemeProvider>
-    </UserProvider>
+    <AppThemeProvider>
+      <UserProvider>
+        <ThemedNavigation>
+          <RootErrorBoundary>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="login" />
+              <Stack.Screen name="signup" />
+              <Stack.Screen name="forgot-password" />
+              <Stack.Screen name="reset-password" />
+              <Stack.Screen name="terms" />
+              <Stack.Screen name="privacy" />
+              <Stack.Screen name="(app)" />
+            </Stack>
+          </RootErrorBoundary>
+        </ThemedNavigation>
+      </UserProvider>
+    </AppThemeProvider>
   );
 }

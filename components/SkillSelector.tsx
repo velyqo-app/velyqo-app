@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-import { Colors, Radius } from "../constants/theme";
+import { Radius, type ThemeColors } from "../constants/theme";
+import { useThemeColors, useThemedStyles } from "../context/ThemeContext";
 
 const MAX_SKILLS = 10;
 const RECOMMENDED_MIN = 5;
@@ -20,6 +21,9 @@ export default function SkillSelector({
   selected,
   onChange,
 }: Props) {
+  const Colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
+
   const [query, setQuery] = useState("");
 
   const atLimit = selected.length >= MAX_SKILLS;
@@ -165,7 +169,7 @@ export default function SkillSelector({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   section: {
     marginTop: 20,
   },
@@ -209,7 +213,7 @@ const styles = StyleSheet.create({
   },
 
   chipTextSelected: {
-    color: Colors.text,
+    color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: "600",
   },

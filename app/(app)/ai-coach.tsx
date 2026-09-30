@@ -29,7 +29,8 @@ import {
 } from "../../services/coachHistoryService";
 import { askAI, isAIFailureReply } from "../../services/openaiService";
 
-import { Colors } from "../../constants/theme";
+import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import { AIContext } from "../../types/ai";
 
 type Message = {
@@ -48,6 +49,8 @@ type Message = {
 type RenderableMessage = Message & { originalIndex: number };
 
 export default function AICoachScreen() {
+  const styles = useThemedStyles(createStyles);
+
   // Fetches independently rather than relying on an ancestor screen (e.g. the
   // dashboard) having already populated UserContext — otherwise a direct/hard
   // reload onto this screen renders the welcome message with blank fields.
@@ -443,7 +446,7 @@ I'm your Velyqo Career Coach. How can I help today?`;
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

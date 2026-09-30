@@ -1,14 +1,48 @@
 import { Redirect, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from "react-native";
 
 import { getSession } from "../services/authService";
 import { getProfile } from "../services/profileService";
+import { Spacing, type ThemeColors } from "../constants/theme";
+import { useThemedStyles } from "../context/ThemeContext";
 
 type SessionStatus = "checking" | "signed-out" | "needs-onboarding" | "ready";
 
+/** The Dynamic Growth V on true transparency (the launcher icon's adaptive
+ * foreground) — no plate, so it sits cleanly on both theme backgrounds. */
+const BRAND_MARK = require("../assets/brand/velyqo-adaptive-foreground.png");
+
+// The asset is a 1024px square whose visible mark (V + glow) spans only its
+// central ~46% x 41% — the rest is Android's launcher safe-zone padding.
+const MARK_WIDTH_FRACTION = 0.457;
+// Transparent padding above/below the mark (~29% each) is collapsed with
+// negative margins, keeping a little room so the glow is never clipped.
+const MARK_VERTICAL_PADDING_FRACTION = 0.27;
+
+/**
+ * Width of the visible mark: 44% of the screen width (comfortable side
+ * margins on phones), but never more than 20% of the height (so short
+ * screens keep room for the text and buttons), within 120-220dp.
+ */
+function brandMarkWidth(screenWidth: number, screenHeight: number) {
+  return Math.min(220, Math.max(120, Math.min(screenWidth * 0.44, screenHeight * 0.2)));
+}
+
 export default function WelcomeScreen() {
+  const styles = useThemedStyles(createStyles);
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+
+  const markImageSize = brandMarkWidth(screenWidth, screenHeight) / MARK_WIDTH_FRACTION;
+
   const [status, setStatus] = useState<SessionStatus>("checking");
 
   useEffect(() => {
@@ -98,6 +132,21 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
+      <Image
+        source={BRAND_MARK}
+        resizeMode="contain"
+        accessible={false}
+        style={[
+          styles.brandMark,
+          {
+            width: markImageSize,
+            height: markImageSize,
+            marginTop: -markImageSize * MARK_VERTICAL_PADDING_FRACTION,
+            marginBottom: -markImageSize * MARK_VERTICAL_PADDING_FRACTION + Spacing.md,
+          },
+        ]}
+      />
+
       <Text style={styles.logo}>VELYQO</Text>
 
       <Text style={styles.tagline}>Engineer Your Future with AI</Text>
@@ -119,21 +168,25 @@ export default function WelcomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   loading: {
     flex: 1,
-    backgroundColor: "#0B1120",
+    backgroundColor: Colors.background,
   },
 
   container: {
     flex: 1,
-    backgroundColor: "#0B1120",
+    backgroundColor: Colors.background,
     justifyContent: "center",
     padding: 24,
   },
 
+  brandMark: {
+    alignSelf: "center",
+  },
+
   logo: {
-    color: "#7C3AED",
+    color: Colors.primary,
     fontSize: 46,
     fontWeight: "800",
     textAlign: "center",
@@ -142,14 +195,15 @@ const styles = StyleSheet.create({
   },
 
   tagline: {
-    color: "#CBD5E1",
+    color: Colors.text,
+    opacity: 0.8,
     fontSize: 18,
     textAlign: "center",
     marginBottom: 60,
   },
 
   primaryButton: {
-    backgroundColor: "#7C3AED",
+    backgroundColor: Colors.primary,
     padding: 18,
     borderRadius: 14,
     alignItems: "center",
@@ -157,21 +211,21 @@ const styles = StyleSheet.create({
   },
 
   primaryText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 16,
     fontWeight: "700",
   },
 
   secondaryButton: {
     borderWidth: 1,
-    borderColor: "#7C3AED",
+    borderColor: Colors.primary,
     padding: 18,
     borderRadius: 14,
     alignItems: "center",
   },
 
   secondaryText: {
-    color: "#FFFFFF",
+    color: Colors.text,
     fontSize: 16,
     fontWeight: "700",
   },

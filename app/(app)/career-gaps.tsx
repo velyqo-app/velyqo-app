@@ -13,10 +13,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
+import { ExpandableText } from "../../components/ui/Disclosure";
 import LoadingScreen from "../../components/ui/LoadingScreen";
 import ScreenHeader from "../../components/ui/ScreenHeader";
 
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemeColors, useThemedStyles } from "../../context/ThemeContext";
 import { useCapabilityGaps } from "../../hooks/useCapabilityGaps";
 import { missionFromCapabilityGap } from "../../services/capabilityMissionService";
 import {
@@ -42,33 +44,34 @@ const STATUS_GROUPS: {
   status: CapabilityStatus;
   title: string;
   description: string;
-  color: string;
+  /** Theme token name, resolved against the active theme at render. */
+  color: keyof ThemeColors;
 }[] = [
   {
     status: "priority_gap",
     title: "Priority Gaps",
     description:
       "Capabilities that matter for this role, where VELYQO doesn't have evidence yet.",
-    color: Colors.warning,
+    color: "warning",
   },
   {
     status: "developing",
     title: "Developing",
     description:
       "Capabilities you've self-reported, or supported by evidence from a completed VELYQO mission.",
-    color: Colors.primary,
+    color: "primary",
   },
   {
     status: "unknown",
     title: "Not Yet Assessed",
     description: "Capabilities we haven't evaluated yet.",
-    color: Colors.subtext,
+    color: "subtext",
   },
   {
     status: "strength",
     title: "Strengths",
     description: "Capabilities backed by real evidence.",
-    color: Colors.success,
+    color: "success",
   },
 ];
 
@@ -103,6 +106,8 @@ function CapabilityRow({
   color: string;
   onPress: (capability: CapabilityGap) => void;
 }) {
+  const styles = useThemedStyles(createStyles);
+
   const actionHint = MISSION_ELIGIBLE_STATUSES.has(capability.status)
     ? "Build evidence."
     : "View evidence.";
@@ -121,10 +126,16 @@ function CapabilityRow({
       <View style={styles.capabilityTextBlock}>
         <Text style={styles.capabilityName}>{capability.capability_name}</Text>
 
+        {/* Two lines keep the list scannable by name/status/importance;
+            the rest stays one tap away here (the evidence screen doesn't
+            show this description). The toggle is its own touch target, so
+            the row itself still opens the capability. */}
         {capability.capability_description ? (
-          <Text style={styles.capabilityDescription}>
-            {capability.capability_description}
-          </Text>
+          <ExpandableText
+            text={capability.capability_description}
+            numberOfLines={2}
+            style={styles.capabilityDescription}
+          />
         ) : null}
 
         <Text style={styles.capabilityImportance}>
@@ -138,6 +149,9 @@ function CapabilityRow({
 }
 
 export default function CapabilityGapsScreen() {
+  const Colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
+
   const { phase, capabilities, errorMessage, retry } = useCapabilityGaps();
 
   /**
@@ -307,7 +321,7 @@ export default function CapabilityGapsScreen() {
                   <View key={capability.id}>
                     <CapabilityRow
                       capability={capability}
-                      color={group.color}
+                      color={Colors[group.color]}
                       onPress={handleCapabilityPress}
                     />
 
@@ -325,7 +339,7 @@ export default function CapabilityGapsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

@@ -1,7 +1,8 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import StructuredCoachResponse from "./coach/StructuredCoachResponse";
-import { Colors, Radius, Spacing } from "../constants/theme";
+import { Radius, Spacing, type ThemeColors } from "../constants/theme";
+import { useThemedStyles } from "../context/ThemeContext";
 import { parseCoachResponse } from "../services/coachResponseParser";
 
 type Props = {
@@ -22,6 +23,8 @@ export default function ChatBubble({
   isError,
   onRetry,
 }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   // Only ever attempted for the coach's own replies — a user's typed
   // message is never parsed for section labels.
   const sections = !isUser ? parseCoachResponse(message) : null;
@@ -54,7 +57,7 @@ export default function ChatBubble({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     maxWidth: "85%",
     padding: Spacing.md,
@@ -78,7 +81,7 @@ const styles = StyleSheet.create({
   },
 
   userText: {
-    color: Colors.text,
+    color: Colors.onPrimary,
   },
 
   aiText: {

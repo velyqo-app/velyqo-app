@@ -11,8 +11,13 @@ import {
   View,
 } from "react-native";
 import { signIn } from "../services/authService";
+import type { ThemeColors } from "../constants/theme";
+import { useThemeColors, useThemedStyles } from "../context/ThemeContext";
 
 export default function LoginScreen() {
+  const Colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -47,7 +52,7 @@ export default function LoginScreen() {
       <TextInput
         style={styles.input}
         placeholder="Email"
-        placeholderTextColor="#94A3B8"
+        placeholderTextColor={Colors.subtext}
         keyboardType="email-address"
         autoCapitalize="none"
         value={email}
@@ -57,7 +62,7 @@ export default function LoginScreen() {
       <TextInput
         style={styles.input}
         placeholder="Password"
-        placeholderTextColor="#94A3B8"
+        placeholderTextColor={Colors.subtext}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -77,16 +82,16 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B1120",
+    backgroundColor: Colors.background,
     justifyContent: "center",
     padding: 24,
   },
 
   logo: {
-    color: "#7C3AED",
+    color: Colors.primary,
     fontSize: 40,
     fontWeight: "800",
     textAlign: "center",
@@ -94,7 +99,7 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    color: "#FFFFFF",
+    color: Colors.text,
     fontSize: 26,
     fontWeight: "700",
     textAlign: "center",
@@ -102,15 +107,17 @@ const styles = StyleSheet.create({
   },
 
   input: {
-    backgroundColor: "#1E293B",
-    color: "#FFFFFF",
+    backgroundColor: Colors.card,
+    color: Colors.text,
+    borderWidth: 1,
+    borderColor: Colors.border,
     padding: 16,
     borderRadius: 12,
     marginBottom: 16,
   },
 
   button: {
-    backgroundColor: "#7C3AED",
+    backgroundColor: Colors.primary,
     padding: 18,
     borderRadius: 14,
     alignItems: "center",
@@ -118,20 +125,20 @@ const styles = StyleSheet.create({
   },
 
   buttonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 16,
     fontWeight: "700",
   },
 
   signup: {
-    color: "#A78BFA",
+    color: Colors.link,
     textAlign: "center",
     marginTop: 24,
     fontSize: 15,
   },
 
   forgotPassword: {
-    color: "#A78BFA",
+    color: Colors.link,
     textAlign: "center",
     marginTop: 20,
     fontSize: 14,

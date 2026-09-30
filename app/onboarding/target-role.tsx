@@ -9,10 +9,13 @@ import { Occupation } from "../../types/occupation";
 
 import OnboardingProgress from "../../components/onboarding/OnboardingProgress";
 import Button from "../../components/ui/Button";
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingSteps";
 
 export default function TargetRoleScreen() {
+  const styles = useThemedStyles(createStyles);
+
   const { userData, setUserData } = useContext(UserContext);
 
   const { query, setQuery, results, loading, clearSearch } =
@@ -96,7 +99,7 @@ export default function TargetRoleScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

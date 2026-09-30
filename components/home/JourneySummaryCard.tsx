@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import { Colors } from "../../constants/theme";
+import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import { CapabilityMilestoneEvent } from "../../services/capabilityDevelopmentTimelineService";
 import { formatEstimatedJourney } from "../../services/journeyEstimateFormat";
 import { RoadmapJourneyEstimate } from "../../types/roadmap";
@@ -9,7 +10,6 @@ import Card from "../ui/Card";
 interface Props {
   currentRole: string;
   targetRole: string;
-  progress: number;
   estimatedJourney: RoadmapJourneyEstimate | null;
   /** Phase 17B — the single most recent Capability Development Timeline
    * milestone (Phase 16, unmodified) for the CURRENT target role, or null
@@ -62,11 +62,12 @@ function formatMilestoneDate(iso: string): string {
 export default function JourneySummaryCard({
   currentRole,
   targetRole,
-  progress,
   estimatedJourney,
   recentCapabilityMilestone,
   onPress,
 }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   const duration = formatEstimatedJourney(estimatedJourney);
 
   // Phase 17B — a real, dated fact takes priority over the static estimate
@@ -91,20 +92,12 @@ export default function JourneySummaryCard({
         {currentRole || "Current role"} → {targetRole || "Target role"}
       </Text>
 
-      <View style={styles.progressRow}>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${progress}%` }]} />
-        </View>
-
-        <Text style={styles.progressValue}>{progress}%</Text>
-      </View>
-
       <Text style={styles.duration}>{caption}</Text>
     </Card>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -130,32 +123,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 14,
-  },
-
-  progressRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-
-  progressBar: {
-    flex: 1,
-    height: 8,
-    backgroundColor: Colors.border,
-    borderRadius: 999,
-    overflow: "hidden",
-  },
-
-  progressFill: {
-    height: "100%",
-    backgroundColor: Colors.primary,
-    borderRadius: 999,
-  },
-
-  progressValue: {
-    color: Colors.success,
-    fontSize: 14,
-    fontWeight: "700",
   },
 
   duration: {

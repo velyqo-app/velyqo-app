@@ -2,7 +2,8 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import Button from "../ui/Button";
 import Card from "../ui/Card";
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import { CATEGORY_LABELS, SELECTABLE_CATEGORIES } from "../../hooks/useCareerCheckin";
 import { CareerCheckinCategory } from "../../types/careerCheckin";
 
@@ -26,6 +27,8 @@ export default function CheckinCategoryStep({
   onContinue,
   canContinue,
 }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.prompt}>What&apos;s changed?</Text>
@@ -80,7 +83,7 @@ export default function CheckinCategoryStep({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   content: {
     padding: Spacing.lg,
     paddingBottom: 40,
@@ -121,7 +124,7 @@ const styles = StyleSheet.create({
   },
 
   checkmark: {
-    color: Colors.text,
+    color: Colors.onPrimary,
     fontSize: 16,
     fontWeight: "700",
   },

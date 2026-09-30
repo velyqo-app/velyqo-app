@@ -1,8 +1,10 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import { Colors } from "../../constants/theme";
+import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import Button from "../ui/Button";
 import Card from "../ui/Card";
+import { DisclosureToggle, ExpandableText, useDisclosure } from "../ui/Disclosure";
 
 interface Props {
   title: string;
@@ -15,8 +17,15 @@ interface Props {
    * non-mission NextMove (e.g. "Set destination", "View Journey") should
    * pass an explicit, honest label instead. */
   actionLabel?: string;
+  /** Why this move matters — supporting reasoning, revealed together with
+   * the full description under "Show details" (formerly its own card). */
+  reason?: string;
   onStart: () => void;
 }
+
+/** Collapsed description length — enough to say what the move is about;
+ * the rest of the generated text is one tap away, never rewritten. */
+const SUMMARY_LINES = 2;
 
 /** The dominant element on Home — deliberately the largest, most visually
  * weighted section on the screen, per "the user should know the primary
@@ -30,15 +39,48 @@ export default function NextMoveCard({
   description,
   estimatedTime,
   actionLabel = "▶ Start",
+  reason,
   onStart,
 }: Props) {
+  const styles = useThemedStyles(createStyles);
+  const { expanded, toggle } = useDisclosure();
+
+  // "Never hide the action, hide the explanation": title, a short summary,
+  // the time and Start always stay visible; only the rest of the generated
+  // description and the "why" sit behind the toggle. The toggle is its own
+  // touch target, so opening details never starts the mission.
   return (
     <Card onPress={onStart}>
       <Text style={styles.label}>YOUR NEXT MOVE</Text>
 
       <Text style={styles.title}>{title}</Text>
 
-      <Text style={styles.description}>{description}</Text>
+      {reason ? (
+        <>
+          <Text
+            style={styles.description}
+            numberOfLines={expanded ? undefined : SUMMARY_LINES}
+          >
+            {description}
+          </Text>
+
+          <DisclosureToggle expanded={expanded} onPress={toggle} />
+
+          {expanded && (
+            <View style={styles.details}>
+              <Text style={styles.reasonLabel}>WHY THIS MATTERS</Text>
+
+              <Text style={styles.reason}>{reason}</Text>
+            </View>
+          )}
+        </>
+      ) : (
+        <ExpandableText
+          text={description}
+          numberOfLines={SUMMARY_LINES}
+          style={styles.description}
+        />
+      )}
 
       {estimatedTime ? (
         <View style={styles.footer}>
@@ -53,7 +95,7 @@ export default function NextMoveCard({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   label: {
     color: Colors.primary,
     fontSize: 12,
@@ -74,6 +116,27 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     marginTop: 10,
+  },
+
+  details: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+
+  reasonLabel: {
+    color: Colors.subtext,
+    fontSize: 12,
+    letterSpacing: 1.2,
+    fontWeight: "800",
+    marginBottom: 6,
+  },
+
+  reason: {
+    color: Colors.text,
+    fontSize: 15,
+    lineHeight: 22,
   },
 
   footer: {

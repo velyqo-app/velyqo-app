@@ -10,7 +10,8 @@ import {
 
 import Button from "../ui/Button";
 import Card from "../ui/Card";
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemeColors, useThemedStyles } from "../../context/ThemeContext";
 import { CareerCheckinCategory } from "../../types/careerCheckin";
 
 interface DetailDraft {
@@ -87,6 +88,9 @@ export default function CheckinDetailsStep({
   submitting,
   error,
 }: Props) {
+  const Colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <KeyboardAvoidingView
       style={styles.flex}
@@ -158,7 +162,7 @@ export default function CheckinDetailsStep({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   flex: {
     flex: 1,
   },

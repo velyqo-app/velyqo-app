@@ -4,7 +4,8 @@ import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-na
 import { UserContext } from "../../context/UserContext";
 
 import OnboardingProgress from "../../components/onboarding/OnboardingProgress";
-import { Colors, Radius, Spacing } from "../../constants/theme";
+import { Radius, Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingSteps";
 
 const GOALS = [
@@ -16,6 +17,8 @@ const GOALS = [
 ];
 
 export default function PurposeScreen() {
+  const styles = useThemedStyles(createStyles);
+
   const { userData, setUserData } = useContext(UserContext);
 
   const selectGoal = (goal: string) => {
@@ -58,7 +61,7 @@ export default function PurposeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

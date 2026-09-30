@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import { Colors } from "../../constants/theme";
+import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import { Momentum } from "../../services/momentumService";
 import Card from "../ui/Card";
 
@@ -15,6 +16,8 @@ export default function MomentumCard({
   streak,
   missionsCompleted,
 }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Card>
       <Text style={styles.title}>{momentum.emoji} Momentum</Text>
@@ -42,7 +45,7 @@ export default function MomentumCard({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   title: {
     color: Colors.text,
     fontSize: 24,

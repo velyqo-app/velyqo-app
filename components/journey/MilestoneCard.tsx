@@ -1,15 +1,10 @@
-import { useState } from "react";
-import {
-  LayoutAnimation,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
-import { Colors, Radius, Shadows, Spacing } from "../../constants/theme";
+import { Radius, Spacing, type ThemeColors, type ThemeShadows } from "../../constants/theme";
+import { useThemeColors, useThemedStyles } from "../../context/ThemeContext";
 import { RoadmapStep } from "../../types/roadmap";
+import { DisclosureToggle, useDisclosure } from "../ui/Disclosure";
 
 /** Visual weight only — never the source of truth for where the user
  * actually is (that's MilestoneVisualState, purely date-derived). "next" is
@@ -40,22 +35,16 @@ export default function MilestoneCard({
   dateLabel,
   unlocks,
 }: Props) {
-  const [expanded, setExpanded] = useState(false);
+  const Colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
+
+  const { expanded, toggle } = useDisclosure();
 
   const hasDetails =
     Boolean(step.description) ||
     step.skills.length > 0 ||
     step.actions.length > 0 ||
     Boolean(step.salary);
-
-  const toggle = () => {
-    if (!hasDetails) {
-      return;
-    }
-
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpanded((value) => !value);
-  };
 
   const isPast = emphasis === "past";
   const isCurrent = emphasis === "current";
@@ -122,18 +111,7 @@ export default function MilestoneCard({
         </Text>
       </View>
 
-      {hasDetails && (
-        <TouchableOpacity
-          onPress={toggle}
-          style={styles.expandRow}
-          activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.expandText}>
-            {expanded ? "Show less" : "Show details"}
-          </Text>
-        </TouchableOpacity>
-      )}
+      {hasDetails && <DisclosureToggle expanded={expanded} onPress={toggle} />}
 
       {expanded && (
         <View style={styles.details}>
@@ -181,7 +159,7 @@ export default function MilestoneCard({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors, Shadows: ThemeShadows) => StyleSheet.create({
   card: {
     backgroundColor: Colors.card,
     borderRadius: Radius.md,
@@ -259,16 +237,6 @@ const styles = StyleSheet.create({
   metaUnlock: {
     flexShrink: 1,
     fontStyle: "italic",
-  },
-
-  expandRow: {
-    marginTop: 10,
-  },
-
-  expandText: {
-    color: Colors.primary,
-    fontSize: 12,
-    fontWeight: "700",
   },
 
   details: {

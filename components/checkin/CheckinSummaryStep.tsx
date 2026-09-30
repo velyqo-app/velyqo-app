@@ -2,7 +2,8 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import Button from "../ui/Button";
 import Card from "../ui/Card";
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import { CheckinSummary } from "../../hooks/useCareerCheckin";
 
 interface Props {
@@ -25,6 +26,8 @@ export default function CheckinSummaryStep({
   submitting,
   error,
 }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   const hasAnyChange = summary.profileChanges.length > 0 || summary.evidence.length > 0;
 
   return (
@@ -102,7 +105,7 @@ export default function CheckinSummaryStep({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   content: {
     padding: Spacing.lg,
     paddingBottom: 40,

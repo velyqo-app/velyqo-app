@@ -13,10 +13,14 @@ import { UserContext } from "../../context/UserContext";
 
 import OnboardingProgress from "../../components/onboarding/OnboardingProgress";
 import Button from "../../components/ui/Button";
-import { Colors, Radius, Spacing } from "../../constants/theme";
+import { Radius, Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemeColors, useThemedStyles } from "../../context/ThemeContext";
 import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingSteps";
 
 export default function TargetSalaryScreen() {
+  const Colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
+
   const { userData, setUserData } = useContext(UserContext);
   const [salary, setSalary] = useState("");
 
@@ -75,7 +79,7 @@ export default function TargetSalaryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

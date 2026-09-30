@@ -2,7 +2,8 @@ import { router } from "expo-router";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Colors, Spacing } from "../constants/theme";
+import { Spacing, type ThemeColors } from "../constants/theme";
+import { useThemedStyles } from "../context/ThemeContext";
 
 /**
  * Phase 18 — a simple, MVP-appropriate Privacy Policy. Reachable from both
@@ -15,6 +16,8 @@ import { Colors, Spacing } from "../constants/theme";
  * written to make that swap easy (one file, no logic).
  */
 export default function PrivacyScreen() {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -89,7 +92,7 @@ export default function PrivacyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

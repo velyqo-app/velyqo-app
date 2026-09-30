@@ -12,6 +12,8 @@ import {
 
 import { supabase } from "../lib/supabase";
 import { signOut, updatePassword } from "../services/authService";
+import type { ThemeColors } from "../constants/theme";
+import { useThemeColors, useThemedStyles } from "../context/ThemeContext";
 
 type ScreenState = "verifying" | "ready" | "invalid";
 
@@ -82,6 +84,9 @@ function extractRecoveryParams(url: string): Record<string, string> {
  * always ends at one clear, familiar place: a fresh sign-in with it.
  */
 export default function ResetPasswordScreen() {
+  const Colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
+
   // Not Linking.useURL(): that hook's state starts at `null` and can never
   // be `undefined` (see its own source), so there is no way to tell "still
   // resolving" apart from "genuinely no link" from its return value alone.
@@ -243,7 +248,7 @@ export default function ResetPasswordScreen() {
       <TextInput
         style={styles.input}
         placeholder="New password"
-        placeholderTextColor="#94A3B8"
+        placeholderTextColor={Colors.subtext}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -253,7 +258,7 @@ export default function ResetPasswordScreen() {
       <TextInput
         style={styles.input}
         placeholder="Confirm new password"
-        placeholderTextColor="#94A3B8"
+        placeholderTextColor={Colors.subtext}
         secureTextEntry
         value={confirmPassword}
         onChangeText={setConfirmPassword}
@@ -273,16 +278,16 @@ export default function ResetPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B1120",
+    backgroundColor: Colors.background,
     justifyContent: "center",
     padding: 24,
   },
 
   logo: {
-    color: "#7C3AED",
+    color: Colors.primary,
     fontSize: 40,
     fontWeight: "800",
     textAlign: "center",
@@ -290,7 +295,7 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    color: "#FFFFFF",
+    color: Colors.text,
     fontSize: 26,
     fontWeight: "700",
     textAlign: "center",
@@ -298,7 +303,7 @@ const styles = StyleSheet.create({
   },
 
   body: {
-    color: "#94A3B8",
+    color: Colors.subtext,
     fontSize: 15,
     lineHeight: 22,
     textAlign: "center",
@@ -306,15 +311,17 @@ const styles = StyleSheet.create({
   },
 
   input: {
-    backgroundColor: "#1E293B",
-    color: "#FFFFFF",
+    backgroundColor: Colors.card,
+    color: Colors.text,
+    borderWidth: 1,
+    borderColor: Colors.border,
     padding: 16,
     borderRadius: 12,
     marginBottom: 16,
   },
 
   button: {
-    backgroundColor: "#7C3AED",
+    backgroundColor: Colors.primary,
     padding: 18,
     borderRadius: 14,
     alignItems: "center",
@@ -326,13 +333,13 @@ const styles = StyleSheet.create({
   },
 
   buttonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 16,
     fontWeight: "700",
   },
 
   link: {
-    color: "#A78BFA",
+    color: Colors.link,
     textAlign: "center",
     marginTop: 24,
     fontSize: 15,

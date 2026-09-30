@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { Colors, Radius, Spacing } from "../../constants/theme";
+import { Radius, Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 
 export type JourneyViewMode = "roadmap" | "story";
 
@@ -22,6 +23,8 @@ const SEGMENTS: { value: JourneyViewMode; label: string }[] = [
  * its own.
  */
 export default function StorySegmentedControl({ value, onChange }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View
       style={styles.container}
@@ -50,7 +53,7 @@ export default function StorySegmentedControl({ value, onChange }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: "row",
     marginHorizontal: Spacing.lg,
@@ -82,6 +85,6 @@ const styles = StyleSheet.create({
   },
 
   labelSelected: {
-    color: Colors.text,
+    color: Colors.onPrimary,
   },
 });

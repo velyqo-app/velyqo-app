@@ -1,6 +1,7 @@
 import { StyleSheet, Text } from "react-native";
 
-import { Colors } from "../../constants/theme";
+import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import {
   EXPERIENCE_LEVEL_LABELS,
   ExperienceLevel,
@@ -61,6 +62,8 @@ export default function CareerBlueprintCard({
   onEditTargetTimeframe,
   onEditPriority,
 }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Card>
       <Text style={styles.title}>Career Blueprint</Text>
@@ -125,7 +128,7 @@ export default function CareerBlueprintCard({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   title: {
     color: Colors.text,
     fontSize: 20,

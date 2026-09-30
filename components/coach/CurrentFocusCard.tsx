@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { Colors, Radius, Shadows, Spacing } from "../../constants/theme";
+import { Radius, Spacing, type ThemeColors, type ThemeShadows } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import { formatEstimatedJourney } from "../../services/journeyEstimateFormat";
 import { RoadmapJourneyEstimate } from "../../types/roadmap";
 
@@ -26,6 +27,8 @@ export default function CurrentFocusCard({
   estimatedJourney,
   onViewJourney,
 }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   if (loading) {
     return null;
   }
@@ -64,7 +67,7 @@ export default function CurrentFocusCard({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors, Shadows: ThemeShadows) => StyleSheet.create({
   card: {
     backgroundColor: Colors.cardElevated,
     borderRadius: Radius.lg,

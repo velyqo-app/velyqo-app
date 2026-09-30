@@ -1,7 +1,8 @@
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import Card from "../ui/Card";
-import { Colors, Radius, Spacing } from "../../constants/theme";
+import { Radius, Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemeColors, useThemedStyles } from "../../context/ThemeContext";
 import { ReviewRow } from "../../hooks/useCareerCheckin";
 import { CapabilityGap } from "../../types/capability";
 import { CareerCheckinDecisionType } from "../../types/careerCheckinConfirmation";
@@ -37,6 +38,9 @@ const DECISION_LABEL: Record<CareerCheckinDecisionType, string> = {
  * without any AI being added now.
  */
 export default function CheckinReviewCard({ row, capabilityOptions, onChange }: Props) {
+  const Colors = useThemeColors();
+  const styles = useThemedStyles(createStyles);
+
   const isEvidence = row.category === "new_evidence";
 
   if (row.isUnresolved) {
@@ -244,7 +248,7 @@ export default function CheckinReviewCard({ row, capabilityOptions, onChange }: 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   eyebrow: {
     color: Colors.subtext,
     fontSize: 11,
@@ -334,7 +338,7 @@ const styles = StyleSheet.create({
   },
 
   chipTextSelected: {
-    color: Colors.text,
+    color: Colors.onPrimary,
   },
 
   actionsRow: {
@@ -364,7 +368,7 @@ const styles = StyleSheet.create({
   },
 
   actionTextActive: {
-    color: Colors.text,
+    color: Colors.onPrimary,
   },
 
   statusLabel: {

@@ -9,7 +9,8 @@ import StorySegmentedControl, {
 } from "../../components/journey/StorySegmentedControl";
 import StoryView from "../../components/journey/StoryView";
 import ScreenHeader from "../../components/ui/ScreenHeader";
-import { Colors } from "../../constants/theme";
+import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 
 /**
  * Phase 11 Step 4 — Journey's thin shell. Owns nothing but the
@@ -27,6 +28,8 @@ import { Colors } from "../../constants/theme";
  * freely switch segments afterward via local state.
  */
 export default function TimelineScreen() {
+  const styles = useThemedStyles(createStyles);
+
   const { view: viewParam } = useLocalSearchParams<{ view?: string }>();
 
   const [view, setView] = useState<JourneyViewMode>(
@@ -62,7 +65,7 @@ export default function TimelineScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

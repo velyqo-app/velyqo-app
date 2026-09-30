@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { Colors, Radius } from "../../constants/theme";
+import { Radius, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 
 interface Props {
   questions: string[];
@@ -16,6 +17,8 @@ export default function SuggestedQuestions({
   onSelect,
   disabled,
 }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   if (questions.length === 0) {
     return null;
   }
@@ -37,7 +40,7 @@ export default function SuggestedQuestions({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     marginBottom: 16,
     gap: 8,

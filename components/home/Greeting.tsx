@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import { Colors } from "../../constants/theme";
+import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 
 interface Props {
   name: string;
@@ -9,6 +10,8 @@ interface Props {
 /** Plain text, no card/border — sits directly on the background so the
  * screen opens with a person, not a box. */
 export default function Greeting({ name }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   const hour = new Date().getHours();
 
   let greeting = "Good evening";
@@ -28,7 +31,7 @@ export default function Greeting({ name }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     marginBottom: 20,
   },

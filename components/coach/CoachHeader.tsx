@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import { Colors } from "../../constants/theme";
+import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 
 interface Props {
   currentRole: string;
@@ -11,6 +12,8 @@ interface Props {
  * label plus one role row) so it reads as "this is my coach, here's my
  * trajectory" without pushing the chat itself down the screen. */
 export default function CoachHeader({ currentRole, targetRole }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       <Text style={styles.eyebrow}>YOUR CAREER COACH</Text>
@@ -30,7 +33,7 @@ export default function CoachHeader({ currentRole, targetRole }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     paddingHorizontal: 20,
     paddingTop: 20,

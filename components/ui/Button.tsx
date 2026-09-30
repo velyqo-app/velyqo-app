@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity } from "react-native";
 
-import { Colors, Radius } from "../../constants/theme";
+import { Radius, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 
 interface Props {
   title: string;
@@ -15,6 +16,8 @@ export default function Button({
   variant = "primary",
   disabled = false,
 }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <TouchableOpacity
       activeOpacity={0.85}
@@ -35,7 +38,7 @@ export default function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   button: {
     paddingVertical: 16,
     borderRadius: Radius.lg,
@@ -58,7 +61,7 @@ const styles = StyleSheet.create({
   },
 
   text: {
-    color: Colors.text,
+    color: Colors.onPrimary,
     fontSize: 16,
     fontWeight: "700",
   },

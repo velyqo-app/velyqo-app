@@ -1,7 +1,8 @@
 import { StyleSheet, Text } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 
-import { Colors, Radius } from "../../constants/theme";
+import { Radius, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 
 interface Props {
   label: string | null;
@@ -12,6 +13,8 @@ interface Props {
  * the way a chat app's sticky date header does. Absent entirely (never a
  * placeholder) when the roadmap has no timing data to anchor a label to. */
 export default function StickyDateIndicator({ label }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   if (!label) {
     return null;
   }
@@ -27,7 +30,7 @@ export default function StickyDateIndicator({ label }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   pill: {
     position: "absolute",
     top: 8,

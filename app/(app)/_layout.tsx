@@ -3,7 +3,7 @@ import { Redirect, Tabs } from "expo-router";
 import { useEffect, useState } from "react";
 
 import LoadingScreen from "../../components/ui/LoadingScreen";
-import { Colors } from "../../constants/theme";
+import { useThemeColors } from "../../context/ThemeContext";
 import { supabase } from "../../lib/supabase";
 import { getSession } from "../../services/authService";
 import { getProfile } from "../../services/profileService";
@@ -13,6 +13,8 @@ type SessionForCheck = Awaited<ReturnType<typeof getSession>>["data"]["session"]
 type AccessStatus = "checking" | "signed-out" | "needs-onboarding" | "ready";
 
 export default function AppLayout() {
+  const Colors = useThemeColors();
+
   // "checking" while the initial session/profile check is still resolving.
   const [status, setStatus] = useState<AccessStatus>("checking");
 

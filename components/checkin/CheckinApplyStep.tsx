@@ -2,7 +2,8 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import Button from "../ui/Button";
 import Card from "../ui/Card";
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import { ReviewRow } from "../../hooks/useCareerCheckin";
 import {
   ApplyStatus,
@@ -42,6 +43,8 @@ export default function CheckinApplyStep({
   onRetry,
   retrying,
 }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   const rowByIndex = new Map(reviewRows.map((row) => [row.reportIndex, row]));
 
   const applicable = confirmation.decisions.filter(
@@ -103,7 +106,7 @@ export default function CheckinApplyStep({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   content: {
     padding: Spacing.lg,
     paddingBottom: 40,

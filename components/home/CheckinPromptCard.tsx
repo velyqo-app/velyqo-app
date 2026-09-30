@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import { Colors } from "../../constants/theme";
+import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import Card from "../ui/Card";
 
 interface Props {
@@ -15,6 +16,8 @@ interface Props {
  * available, no-pressure option, not a nudge or a nag.
  */
 export default function CheckinPromptCard({ onPress }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Card onPress={onPress}>
       <View style={styles.row}>
@@ -34,7 +37,7 @@ export default function CheckinPromptCard({ onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",

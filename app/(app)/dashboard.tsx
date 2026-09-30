@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import { BackHandler, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import MomentumCard from "../../components/dashboard-v2/MomentumCard";
 
@@ -9,14 +10,13 @@ import CheckinPromptCard from "../../components/home/CheckinPromptCard";
 import Greeting from "../../components/home/Greeting";
 import JourneySummaryCard from "../../components/home/JourneySummaryCard";
 import NextMoveCard from "../../components/home/NextMoveCard";
-import RoleIndicatorRow from "../../components/home/RoleIndicatorRow";
-import WhyThisMattersCard from "../../components/home/WhyThisMattersCard";
 
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
 import LoadingScreen from "../../components/ui/LoadingScreen";
 
-import { Colors } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import { useDashboard } from "../../hooks/useDashboard";
 import { NextMove } from "../../types/nextMove";
 
@@ -69,6 +69,9 @@ function getActionLabel(nextMove: NextMove): string | undefined {
 }
 
 export default function DashboardScreen() {
+  const styles = useThemedStyles(createStyles);
+  const insets = useSafeAreaInsets();
+
   const { loading, error, retry, userData, progress, momentum, careerBrief } =
     useDashboard();
 
@@ -162,16 +165,12 @@ export default function DashboardScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      // The app draws edge-to-edge, so clear the status bar using the
+      // device's real inset, plus a little breathing room.
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing.md }]}
       showsVerticalScrollIndicator={false}
     >
       <Greeting name={userData.name} />
-
-      <RoleIndicatorRow
-        currentRole={userData.currentRole}
-        targetRole={userData.targetRole}
-        onPress={goToJourney}
-      />
 
       {careerBrief.assessmentInProgress ? (
         <Text style={styles.assessmentInProgressHint}>
@@ -186,19 +185,17 @@ export default function DashboardScreen() {
         description={careerBrief.nextMove.description}
         estimatedTime={getEstimatedTime(careerBrief.nextMove)}
         actionLabel={getActionLabel(careerBrief.nextMove)}
+        reason={getImpactText(careerBrief.nextMove)}
         onStart={handleNextMoveAction}
       />
 
       <JourneySummaryCard
         currentRole={userData.currentRole}
         targetRole={userData.targetRole}
-        progress={careerBrief.readiness}
         estimatedJourney={careerBrief.estimatedJourney}
         recentCapabilityMilestone={careerBrief.recentCapabilityMilestone}
         onPress={goToJourney}
       />
-
-      <WhyThisMattersCard impact={getImpactText(careerBrief.nextMove)} />
 
       <MomentumCard
         momentum={momentum}
@@ -213,7 +210,7 @@ export default function DashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

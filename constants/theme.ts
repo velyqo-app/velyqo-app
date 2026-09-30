@@ -1,40 +1,97 @@
-export const Colors = {
-  background: "#0B1120",
+/**
+ * Colour tokens. Both palettes share one shape so every component styles
+ * against the same token names; the active palette is chosen at runtime by
+ * context/ThemeContext.tsx (Light by default, Dark, or follow the device).
+ * Never import a palette directly into a component — use useThemeColors()
+ * or useThemedStyles() so the colours follow the user's theme choice.
+ */
+export interface ThemeColors {
+  background: string;
 
-  card: "#1E293B",
+  card: string;
 
-  /** A step lighter than `card` — reserved for the handful of surfaces that
+  /** A step apart from `card` — reserved for the handful of surfaces that
    * should read as the most important thing on screen (Journey's current
    * milestone, the target-destination card), never used app-wide. */
-  cardElevated: "#243147",
+  cardElevated: string;
 
-  primary: "#7C3AED",
+  primary: string;
 
-  success: "#10B981",
+  /** Text/icons drawn on top of a `primary` fill (buttons, chips, the
+   * user's own chat bubble). */
+  onPrimary: string;
 
-  warning: "#F59E0B",
+  /** Inline text links. */
+  link: string;
 
-  danger: "#EF4444",
+  success: string;
 
-  text: "#FFFFFF",
+  warning: string;
 
-  subtext: "#94A3B8",
+  danger: string;
 
-  border: "#334155",
+  text: string;
 
-  /** A brighter, more visible edge for the same handful of emphasized
-   * surfaces `cardElevated` is used on — never a substitute for `border`
-   * elsewhere. */
-  borderElevated: "#3D4F72",
+  subtext: string;
 
-  /** Low-opacity white, for the single restrained gloss/highlight sweep
-   * premium surfaces get — never a full white fill, never used more than
-   * once per screen region. */
-  highlight: "rgba(255,255,255,0.06)",
+  border: string;
+
+  /** A more visible edge for the same handful of emphasized surfaces
+   * `cardElevated` is used on — never a substitute for `border` elsewhere. */
+  borderElevated: string;
+
+  /** The single restrained gloss/highlight sweep premium surfaces get —
+   * never a full fill, never used more than once per screen region. */
+  highlight: string;
 
   /** `primary` at low opacity, for the soft glow behind the current-position
    * marker only. */
+  glow: string;
+
+  /** Scrim behind modal sheets. */
+  overlay: string;
+}
+
+/** The original VELYQO dark palette, unchanged. */
+export const DarkColors: ThemeColors = {
+  background: "#0B1120",
+  card: "#1E293B",
+  cardElevated: "#243147",
+  primary: "#7C3AED",
+  onPrimary: "#FFFFFF",
+  link: "#A78BFA",
+  success: "#10B981",
+  warning: "#F59E0B",
+  danger: "#EF4444",
+  text: "#FFFFFF",
+  subtext: "#94A3B8",
+  border: "#334155",
+  borderElevated: "#3D4F72",
+  highlight: "rgba(255,255,255,0.06)",
   glow: "rgba(124,58,237,0.35)",
+  overlay: "rgba(0,0,0,0.6)",
+};
+
+/** Light palette: cool off-white canvas, white cards with hairline borders,
+ * brand navy for text, VELYQO purple for brand/action. Status colours are
+ * one step deeper than the dark palette's so they stay readable on white. */
+export const LightColors: ThemeColors = {
+  background: "#F6F7FB",
+  card: "#FFFFFF",
+  cardElevated: "#FCFBFF",
+  primary: "#7C3AED",
+  onPrimary: "#FFFFFF",
+  link: "#6D28D9",
+  success: "#047857",
+  warning: "#B45309",
+  danger: "#DC2626",
+  text: "#0B1120",
+  subtext: "#5B6478",
+  border: "#E3E6EE",
+  borderElevated: "#D9CCFB",
+  highlight: "rgba(124,58,237,0.04)",
+  glow: "rgba(124,58,237,0.22)",
+  overlay: "rgba(11,17,32,0.45)",
 };
 
 export const Spacing = {
@@ -58,13 +115,35 @@ export const Font = {
   small: 14,
 };
 
-export const Shadows = {
+export interface ThemeShadows {
+  card: {
+    shadowColor: string;
+    shadowOpacity: number;
+    shadowRadius: number;
+    shadowOffset: { width: number; height: number };
+    elevation: number;
+  };
+}
+
+export const DarkShadows: ThemeShadows = {
   card: {
     shadowColor: "#000",
     shadowOpacity: 0.25,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
+  },
+};
+
+/** Much softer than dark — on a white canvas a dark-tuned shadow reads as
+ * a heavy grey smudge. */
+export const LightShadows: ThemeShadows = {
+  card: {
+    shadowColor: "#0B1120",
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
 };
 

@@ -10,7 +10,8 @@ import { Occupation } from "../../types/occupation";
 
 import OnboardingProgress from "../../components/onboarding/OnboardingProgress";
 import Button from "../../components/ui/Button";
-import { Colors, Spacing } from "../../constants/theme";
+import { Spacing, type ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from "../../constants/onboardingSteps";
 
 // Keyed on startingSituation so the question never implies employment the
@@ -27,6 +28,8 @@ const TITLE_BY_SITUATION: Record<StartingSituation | "", string> = {
 };
 
 export default function CurrentRoleScreen() {
+  const styles = useThemedStyles(createStyles);
+
   const { userData, setUserData } = useContext(UserContext);
 
   const nextScreen = impliesNoProfessionalExperience(
@@ -118,7 +121,7 @@ export default function CurrentRoleScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

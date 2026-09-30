@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import { Colors } from "../../constants/theme";
+import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles } from "../../context/ThemeContext";
 import Card from "../ui/Card";
 
 interface Props {
@@ -12,6 +13,8 @@ interface Props {
  * Phase 1, so this is deliberately the single remaining entry point here,
  * not a grid of equal-weight action buttons. */
 export default function CareerCoachEntry({ onPress }: Props) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Card onPress={onPress}>
       <View style={styles.row}>
@@ -31,7 +34,7 @@ export default function CareerCoachEntry({ onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
