@@ -1,9 +1,15 @@
 import OpenAI from "@openai/openai";
 import "@supabase/functions-js/edge-runtime.d.ts";
+// Fully qualified rather than mapped: this function's deno.json has no
+// @supabase/supabase-js entry. Same package and range as delete-account's map.
+import { createClient } from "npm:@supabase/supabase-js@^2";
 
 const client = new OpenAI({
   apiKey: Deno.env.get("OPENAI_API_KEY"),
 });
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 /**
  * Origins allowed to call this function from a browser.
@@ -68,6 +74,56 @@ export default {
           status: 405,
           headers: cors,
         }
+      );
+    }
+
+    // Every request that reaches OpenAI is billed to this project, so the
+    // caller must be a signed-in user. verify_jwt = true (supabase/config.toml)
+    // already rejects requests without a valid JWT, but the project's legacy
+    // anon key is also a valid JWT, so the user is re-derived here — mirroring
+    // delete-account/index.ts. Nothing below this check runs without one, and
+    // neither the token nor the auth error is logged or returned.
+    const authHeader = req.headers.get("Authorization");
+
+    if (!authHeader) {
+      return Response.json(
+        { error: "Missing Authorization header." },
+        { status: 401, headers: cors }
+      );
+    }
+
+    try {
+      const callerClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: authHeader } },
+      });
+
+      const {
+        data: { user },
+        error: userError,
+      } = await callerClient.auth.getUser();
+
+      if (userError || !user) {
+        return Response.json(
+          { error: "Not authenticated." },
+          { status: 401, headers: cors }
+        );
+      }
+
+      // An anonymous sign-in is a real session with a valid JWT, so it passes
+      // both checks above. Reject it explicitly, whatever the project's
+      // anonymous sign-in setting is, so only registered users reach OpenAI.
+      if (user.is_anonymous === true) {
+        return Response.json(
+          { error: "A registered account is required." },
+          { status: 403, headers: cors }
+        );
+      }
+    } catch {
+      console.error("ai-coach: could not verify the caller's session.");
+
+      return Response.json(
+        { error: "Could not verify your session. Please try again." },
+        { status: 500, headers: cors }
       );
     }
 

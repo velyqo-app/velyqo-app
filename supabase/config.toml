@@ -415,7 +415,10 @@ enabled = true
 
 [functions.ai-coach]
 enabled = true
-verify_jwt = false
+# Every request reaches the OpenAI API, billed to this project, so the
+# platform must reject requests without a valid JWT. index.ts also requires
+# a signed-in user, because the legacy anon-key JWT alone passes this gate.
+verify_jwt = true
 import_map = "./functions/ai-coach/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
